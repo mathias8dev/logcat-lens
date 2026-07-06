@@ -2,7 +2,7 @@
 	"name": "logcat-lens",
 	"displayName": "Logcat Lens",
 	"icon": "res/icon.png",
-	"description": "A powerful Android Logcat viewer for VS Code — stream, filter, and search logs without leaving your editor.",
+	"description": "A powerful Android and iOS log viewer for VS Code — stream, filter, and search mobile logs without leaving your editor.",
 	"version": "3.0.0",
 	"publisher": "AshishKumarD",
 	"author": "Ashish Kumar",
@@ -15,7 +15,9 @@
 	],
 	"keywords": [
 		"android",
+		"ios",
 		"logcat",
+		"simulator",
 		"adb",
 		"debug",
 		"logs",

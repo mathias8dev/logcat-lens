@@ -1,12 +1,12 @@
 # Logcat Lens
 
-A powerful Android Logcat viewer for VS Code — stream, filter, and search device logs without leaving your editor.
+A powerful Android and iOS log viewer for VS Code — stream, filter, and search mobile logs without leaving your editor.
 
 ![Logcat Lens](res/screenshots/main.png)
 
 ## Features
 
-- **Real-time streaming** — Stream logs from any connected device or emulator
+- **Real-time streaming** — Stream logs from connected Android devices, emulators, and booted iOS simulators
 - **Instant filtering** — Toggle log levels, add tag/package filters with autocomplete
 - **Search** — Full-text search with match counter, navigation, and filter mode
 - **Display modes** — Standard, compact, and soft wrap with infinite scroll-back
@@ -15,6 +15,7 @@ A powerful Android Logcat viewer for VS Code — stream, filter, and search devi
 - **App lifecycle tracking** — Real-time app state (Foreground, Background, Killed, Crashed, ANR) with action buttons
 - **Tag groups** — Save and load named groups of tags for quick switching
 - **Device monitoring** — Auto-detect device connect/disconnect with online/offline status
+- **iOS simulator support** — Stream Apple unified logs from booted iOS simulators using Xcode command line tools
 - **Detail pane** — Click any log row to open a resizable side pane with full message, multi-line JSON auto-stitched and pretty-printed across chunked log entries
 - **Inline media previews** — Image / audio / video responses logged as base64 are detected automatically (PNG, JPEG, GIF, WebP, BMP, MP3, WAV, OGG, MP4, PDF…) and rendered inline in the log row; click for full-size preview in the detail pane
 - **Clickable URLs** — HTTP/HTTPS links in messages open in your system browser
@@ -48,6 +49,8 @@ Log.d("HTTP", Base64.encode(imageBytes).decodeToString())
 
 - **ADB** (Android Debug Bridge) — the extension will auto-detect it from common locations, or you can install it directly from within VS Code. **Android Studio is not required.**
 - A connected Android device or emulator
+- For iOS logs: **macOS with Xcode command line tools** and a booted iOS simulator
+- For physical iOS device logs: optional `idevicesyslog` from `libimobiledevice`
 
 ### ADB Not Found?
 
@@ -60,8 +63,8 @@ You can also set a custom ADB path in **Settings > Logcat Lens > Adb Path**.
 ## Usage
 
 1. Open the **Logcat Lens** tab in the bottom panel
-2. Select a device and click play to start streaming
-3. Filter by level, tag, or package using the filter bar
+2. Select **Android** or **iOS**, then select a device and click play to start streaming
+3. Filter by level, tag, package, or iOS bundle/process using the filter bar
 4. Use sidebar buttons to pause, clear, wrap, or export
 5. Select a single package to enable lifecycle tracking and app actions
 6. Save frequently-used tag sets as groups for quick recall
