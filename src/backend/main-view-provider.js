@@ -3,24 +3,39 @@ const vscode = require('vscode');
 const vsc = require('./core/vsc');
 const util = require('./core/utils');
 const AdbService = require('./core/adb-service');
+const IOSService = require('./core/ios-service');
 const { isAdbAvailable, downloadAndInstallAdb, resetAdbCache } = require('./core/adb-service');
 
 module.exports = class MainViewProvider {
 	#view;
 	#extensionURI;
 	#paused = false;
+	#activeSource = 'android';
 	adb;
+	ios;
 
 	constructor(context) {
 		this.#extensionURI = context.extensionUri;
 		this.adb = new AdbService();
+		this.ios = new IOSService();
 		this.adb.on('adbevent', (event) => this.#onMessage(event));
+		this.ios.on('iosevent', (event) => this.#onMessage(event));
 		this.adb.startDeviceTracking();
 	}
 
 	release() {
 		this.adb.stop();
 		this.adb.stopDeviceTracking();
+		this.ios.stop();
+		this.ios.stopDeviceTracking();
+	}
+
+	#service(source = this.#activeSource) {
+		return source === 'ios' ? this.ios : this.adb;
+	}
+
+	#source(event) {
+		return event?.data?.source || this.#activeSource || 'android';
 	}
 
 	// MESSAGING
@@ -28,12 +43,17 @@ module.exports = class MainViewProvider {
 		try {
 			switch (event.type) {
 				// UI EVENTS
-				case 'start':
+				case 'start': {
+					const source = this.#source(event);
+					this.#activeSource = source;
 					this.#paused = false;
-					await this.adb.start(event.data);
+					if (source === 'android') this.ios.stop();
+					else this.adb.stop();
+					await this.#service(source).start(event.data);
 					break;
+				}
 				case 'stop':
-					this.adb.stop();
+					this.#service(this.#source(event)).stop();
 					this.#paused = false;
 					break;
 				case 'pause':
@@ -43,14 +63,19 @@ module.exports = class MainViewProvider {
 					this.#paused = false;
 					break;
 				case 'clear':
-					this.adb.clear();
+					this.#service(this.#source(event)).clear();
 					break;
-				case 'restart':
+				case 'restart': {
+					const source = this.#source(event);
+					this.#activeSource = source;
 					this.#paused = false;
-					await this.adb.restart(event.data);
+					if (source === 'android') this.ios.stop();
+					else this.adb.stop();
+					await this.#service(source).restart(event.data);
 					break;
+				}
 				case 'update-packages':
-					this.adb.updatePackages(event.data.packages);
+					this.#service(this.#source(event)).updatePackages(event.data.packages);
 					break;
 				case 'copy':
 					vsc.copyToClipboard(event.data.text);
@@ -61,13 +86,13 @@ module.exports = class MainViewProvider {
 					break;
 				}
 				case 'app-launch':
-					this.adb.launchApp(event.data.deviceId, event.data.packageName).catch(() => {});
+					this.#service(this.#source(event)).launchApp(event.data.deviceId, event.data.packageName).catch(() => {});
 					break;
 				case 'app-force-stop':
-					this.adb.forceStopApp(event.data.deviceId, event.data.packageName).catch(() => {});
+					this.#service(this.#source(event)).forceStopApp(event.data.deviceId, event.data.packageName).catch(() => {});
 					break;
 				case 'app-clear-data':
-					this.adb.clearAppData(event.data.deviceId, event.data.packageName).catch(err => {
+					this.#service(this.#source(event)).clearAppData(event.data.deviceId, event.data.packageName).catch(err => {
 						const detail = (err?.message || '').trim();
 						const isPermBlock = /permission|denied|not allowed|SecurityException|monitor/i.test(detail);
 						const msg = isPermBlock
@@ -77,15 +102,16 @@ module.exports = class MainViewProvider {
 					});
 					break;
 				case 'devices':
-					this.adb.listDevices()
+					this.#service(this.#source(event)).listDevices()
 						.then(devices => this.#postMessage({ type: 'devices', data: { devices } }))
 						.catch(err => {
-							if (this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+							if (this.#source(event) === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+							this.#postMessage({ type: 'devices', data: { devices: [] } });
 							vsc.showErrorPopup(err.message || err);
 						});
 					break;
 				case 'packages':
-					this.adb.listPackages(event.data.deviceId)
+					this.#service(this.#source(event)).listPackages(event.data.deviceId)
 						.then(packages => this.#postMessage({ type: 'packages', data: { packages } }))
 						.catch(err => vsc.showErrorPopup(err.message || err));
 					break;
@@ -111,12 +137,12 @@ module.exports = class MainViewProvider {
 					break;
 				}
 				case 'package-info':
-					this.adb.getPackageInfo(event.data.deviceId, event.data.packageName)
+					this.#service(this.#source(event)).getPackageInfo(event.data.deviceId, event.data.packageName)
 						.then(info => this.#postMessage({ type: 'package-info', data: info }))
 						.catch(() => {});
 					break;
 				case 'fetch-tags':
-					this.adb.listTags(event.data.deviceId)
+					this.#service(this.#source(event)).listTags(event.data.deviceId)
 						.then(tags => this.#postMessage({ type: 'tags', data: { tags } }))
 						.catch(() => {});
 					break;
@@ -137,20 +163,30 @@ module.exports = class MainViewProvider {
 
 				// ADB EVENTS
 				case 'adb.log':
+					if (this.#activeSource !== 'android') break;
+					if (!this.#paused) {
+						this.#postMessage({ type: 'log', data: { log: event.data } });
+					}
+					break;
+				case 'ios.log':
+					if (this.#activeSource !== 'ios') break;
 					if (!this.#paused) {
 						this.#postMessage({ type: 'log', data: { log: event.data } });
 					}
 					break;
 
 				case 'adb.package-changed':
+					if (this.#activeSource !== 'android') break;
 					this.#postMessage({ type: 'package-changed', data: event.data });
 					break;
 
 				case 'adb.lifecycle':
+					if (this.#activeSource !== 'android') break;
 					this.#postMessage({ type: 'lifecycle', data: event.data });
 					break;
 
 				case 'adb.devices-changed':
+					if (this.#activeSource !== 'android') break;
 					this.adb.listDevices()
 						.then(devices => this.#postMessage({ type: 'devices', data: { devices } }))
 						.catch(err => {
@@ -159,21 +195,33 @@ module.exports = class MainViewProvider {
 					break;
 
 				case 'adb.closed':
+					if (this.#activeSource !== 'android') break;
+					this.#postMessage({ type: 'stop' });
+					break;
+				case 'ios.closed':
+					if (this.#activeSource !== 'ios') break;
 					this.#postMessage({ type: 'stop' });
 					break;
 
 				case 'adb.error':
+					if (this.#activeSource !== 'android') break;
 					if (this.#isAdbMissingError(event.data)) return this.#sendAdbMissing();
 					vsc.showErrorPopup(event.data.toString());
-					this.adb.stop();
+					this.#service().stop();
+					this.#postMessage({ type: 'stop' });
+					break;
+				case 'ios.error':
+					if (this.#activeSource !== 'ios') break;
+					vsc.showErrorPopup(event.data.toString());
+					this.#service().stop();
 					this.#postMessage({ type: 'stop' });
 					break;
 			}
 
 		} catch (err) {
-			if (this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+			if (this.#source(event) === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
 			vsc.showErrorPopup(err.message || err);
-			this.adb.stop();
+			this.#service().stop();
 			this.#postMessage({ type: 'stop' });
 		}
 	}

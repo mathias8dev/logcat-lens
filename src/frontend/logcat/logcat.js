@@ -16,6 +16,7 @@ class Logcat extends HTMLElementBase {
 	isPlaying = false;
 	isPaused = false;
 	state = 'idle';
+	source = 'android';
 
 	availablePackages = [];
 	selectedPackages = [];
@@ -42,6 +43,7 @@ class Logcat extends HTMLElementBase {
 
 	connectedCallback() {
 		super.render(this.render());
+		this.logSourceSelect.addEventListener('change', () => this.setLogSource(this.logSourceSelect.value));
 
 		// Virtual scroll handler
 		let scrollTicking = false;
@@ -72,6 +74,7 @@ class Logcat extends HTMLElementBase {
 		this.initTagInput();
 		this.initColumnResize();
 		this.renderLevelChips();
+		this.updateSourceLabels();
 		this.updateStatus();
 		this.postMessage({ type: 'load-tag-groups' });
 
@@ -80,10 +83,11 @@ class Logcat extends HTMLElementBase {
 	}
 
 	_setAdbMissing(missing) {
-		this.querySelector('#adb-missing-overlay').style.display = missing ? '' : 'none';
-		this.querySelector('sidebar').style.display = missing ? 'none' : '';
-		this.querySelector('.content').style.display = missing ? 'none' : '';
-		if (missing) {
+		const show = missing && this.source === 'android';
+		this.querySelector('#adb-missing-overlay').style.display = show ? '' : 'none';
+		this.querySelector('sidebar').style.display = show ? 'none' : '';
+		this.querySelector('.content').style.display = show ? 'none' : '';
+		if (show) {
 			const btn = this.querySelector('#adb-install-btn');
 			btn.disabled = false;
 			btn.textContent = 'Install ADB';
@@ -95,6 +99,7 @@ class Logcat extends HTMLElementBase {
 
 		switch (event.type) {
 			case 'adb-status':
+				if (this.source !== 'android') return;
 				if (event.data.available) {
 					this._setAdbMissing(false);
 					this.refreshDevices();
@@ -140,6 +145,39 @@ class Logcat extends HTMLElementBase {
 		}
 	}
 
+	setLogSource(source) {
+		if (!['android', 'ios'].includes(source) || source === this.source) return;
+		if (this.isPlaying) this.postMessage({ type: 'stop', data: { source: this.source } });
+
+		this.source = source;
+		this.logSourceSelect.value = source;
+		this.availablePackages = [];
+		this.selectedPackages = [];
+		this.tags = [];
+		this.knownTags = new Set();
+		this.activeTagGroup = null;
+		this.tagGroupExpanded = false;
+		this.renderPackages();
+		this.renderTags();
+		this.clear(false);
+		this.isPlaying = false;
+		this.isPaused = false;
+		this.state = 'idle';
+		this.updatePlayButton();
+		this.updateStatus();
+		this.updateSourceLabels();
+		this._setAdbMissing(false);
+
+		if (source === 'android') this.postMessage({ type: 'check-adb' });
+		else this.refreshDevices();
+	}
+
+	updateSourceLabels() {
+		const isIOS = this.source === 'ios';
+		this.packageInput.placeholder = isIOS ? 'Bundle ID' : 'Package';
+		this.deviceSelect.setAttribute('aria-label', isIOS ? 'iOS device' : 'Android device');
+	}
+
 	// ACTIONS
 	start() {
 		if (this.isPlaying && !this.isPaused) return;
@@ -148,6 +186,7 @@ class Logcat extends HTMLElementBase {
 		this.postMessage({
 			type: 'start',
 			data: {
+				source: this.source,
 				deviceId: this.deviceSelect.value,
 				packages: this.selectedPackages,
 				tag: this.tags,
@@ -183,7 +222,7 @@ class Logcat extends HTMLElementBase {
 
 	stop() {
 		if (!this.isPlaying) return;
-		this.postMessage({ type: 'stop' });
+		this.postMessage({ type: 'stop', data: { source: this.source } });
 		this.isPlaying = false;
 		this.isPaused = false;
 		this.state = 'idle';
@@ -196,6 +235,7 @@ class Logcat extends HTMLElementBase {
 		this.postMessage({
 			type: 'restart',
 			data: {
+				source: this.source,
 				deviceId: this.deviceSelect.value,
 				packages: this.selectedPackages,
 				tag: this.tags,
@@ -210,7 +250,7 @@ class Logcat extends HTMLElementBase {
 		this.updateStatus();
 	}
 
-	clear() {
+	clear(remote = true) {
 		this.buffer = [];
 		this.filteredIndices = [];
 		this._mediaSources = new Map();
@@ -236,7 +276,7 @@ class Logcat extends HTMLElementBase {
 			this.updateVirtualHeight();
 		}
 
-		this.postMessage({ type: 'clear' });
+		if (remote) this.postMessage({ type: 'clear', data: { source: this.source } });
 	}
 
 	// ========================
@@ -784,7 +824,11 @@ class Logcat extends HTMLElementBase {
 	}
 
 	escapeHtml(text) {
-		return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+
+	escapeAttr(text) {
+		return this.escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
 	// ========================
@@ -847,7 +891,7 @@ class Logcat extends HTMLElementBase {
 	// ========================
 	refreshDevices() {
 		this.toggleLoading(true);
-		this.postMessage({ type: 'devices' });
+		this.postMessage({ type: 'devices', data: { source: this.source } });
 	}
 
 	setDevices(devices) {
@@ -856,9 +900,10 @@ class Logcat extends HTMLElementBase {
 			? devices.map(d => {
 				const status = d.status && d.status !== 'online' ? ` (${d.status})` : '';
 				const disabled = d.status && d.status !== 'online' ? ' disabled' : '';
-				return `<option value="${d.id}"${disabled}>${d.model}${status}</option>`;
+				const kind = d.kind ? ` data-kind="${this.escapeAttr(d.kind)}"` : '';
+				return `<option value="${this.escapeAttr(d.id)}"${kind}${disabled}>${this.escapeHtml(d.model)}${this.escapeHtml(status)}</option>`;
 			}).join('')
-			: '<option value="">No devices found</option>';
+			: `<option value="">No ${this.source === 'ios' ? 'iOS' : 'Android'} devices found</option>`;
 		// Restore previous selection if still available
 		if (prevValue && [...this.deviceSelect.options].some(o => o.value === prevValue && !o.disabled)) {
 			this.deviceSelect.value = prevValue;
@@ -1369,19 +1414,22 @@ class Logcat extends HTMLElementBase {
 	// ========================
 	fetchPackages() {
 		const deviceId = this.deviceSelect.value;
-		if (deviceId) this.postMessage({ type: 'packages', data: { deviceId } });
+		if (deviceId) this.postMessage({ type: 'packages', data: { source: this.source, deviceId } });
 	}
 
 	fetchTags() {
 		const deviceId = this.deviceSelect.value;
-		if (deviceId) this.postMessage({ type: 'fetch-tags', data: { deviceId } });
+		if (deviceId) this.postMessage({ type: 'fetch-tags', data: { source: this.source, deviceId } });
 	}
 
 	initPackageAutocomplete() {
 		const input = this.packageInput;
 		const dropdown = this.packageDropdown;
 
-		this.deviceSelect.addEventListener('change', () => this.fetchPackages());
+		this.deviceSelect.addEventListener('change', () => {
+			this.fetchPackages();
+			this.fetchTags();
+		});
 
 		input.addEventListener('input', () => this.showPackageDropdown(input.value));
 
@@ -1451,7 +1499,7 @@ class Logcat extends HTMLElementBase {
 			this._notifyPackagesChanged();
 			// Fetch version info
 			const deviceId = this.deviceSelect.value;
-			if (deviceId) this.postMessage({ type: 'package-info', data: { deviceId, packageName: pkg } });
+			if (deviceId) this.postMessage({ type: 'package-info', data: { source: this.source, deviceId, packageName: pkg } });
 		}
 		this.packageInput.value = '';
 		this.hidePackageDropdown();
@@ -1460,7 +1508,7 @@ class Logcat extends HTMLElementBase {
 	_notifyPackagesChanged() {
 		// Push the current package list to the backend so lifecycle tracking
 		// updates live without needing a stop/start cycle.
-		this.postMessage({ type: 'update-packages', data: { packages: this.selectedPackages.slice() } });
+		this.postMessage({ type: 'update-packages', data: { source: this.source, packages: this.selectedPackages.slice() } });
 	}
 
 	renderPackages() {
@@ -1498,7 +1546,7 @@ class Logcat extends HTMLElementBase {
 		this.fetchPackages();
 		// Re-fetch info for selected packages
 		this.selectedPackages.forEach(pkg => {
-			this.postMessage({ type: 'package-info', data: { deviceId: this.deviceSelect.value, packageName: pkg } });
+			this.postMessage({ type: 'package-info', data: { source: this.source, deviceId: this.deviceSelect.value, packageName: pkg } });
 		});
 	}
 
@@ -1562,7 +1610,7 @@ class Logcat extends HTMLElementBase {
 		if (this.selectedPackages.length !== 1) return;
 		const deviceId = this.deviceSelect.value;
 		const packageName = this.selectedPackages[0];
-		this.postMessage({ type: `app-${action}`, data: { deviceId, packageName } });
+		this.postMessage({ type: `app-${action}`, data: { source: this.source, deviceId, packageName } });
 	}
 
 	_showPackageInfo(info) {
@@ -2114,6 +2162,7 @@ class Logcat extends HTMLElementBase {
 						<button id="adb-install-btn" class="adb-btn primary" onclick="${this.handle}.postMessage({type:'install-adb'});this.disabled=true;this.textContent='Installing...';">Install ADB</button>
 						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'open-adb-download'})">Download Page</button>
 						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'open-adb-settings'})">Set Path</button>
+						<button class="adb-btn" onclick="${this.handle}.setLogSource('ios')">Use iOS</button>
 					</div>
 					<p class="adb-missing-hint">Already installed? Set the path in Settings &gt; Logcat Lens &gt; Adb Path</p>
 				</div>
@@ -2140,6 +2189,13 @@ class Logcat extends HTMLElementBase {
 				</status-bar>
 
 				<filter-bar>
+					<div class="filter-group source-group">
+						<select id="log-source-select">
+							<option value="android">Android</option>
+							<option value="ios">iOS</option>
+						</select>
+					</div>
+
 					<div class="filter-group">
 						<select id="device-select">
 							<option value="">Select a device...</option>
