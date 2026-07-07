@@ -4,6 +4,7 @@ const vsc = require('./core/vsc');
 const util = require('./core/utils');
 const AdbService = require('./core/adb-service');
 const IOSService = require('./core/ios-service');
+const DebugSessionService = require('./core/debug-session-service');
 const { isAdbAvailable, downloadAndInstallAdb, resetAdbCache } = require('./core/adb-service');
 
 module.exports = class MainViewProvider {
@@ -11,16 +12,19 @@ module.exports = class MainViewProvider {
 	#extensionURI;
 	#paused = false;
 	#activeSource = 'android';
+	#androidTrackingStarted = false;
 	adb;
 	ios;
+	debug;
 
 	constructor(context) {
 		this.#extensionURI = context.extensionUri;
 		this.adb = new AdbService();
 		this.ios = new IOSService();
+		this.debug = new DebugSessionService(context);
 		this.adb.on('adbevent', (event) => this.#onMessage(event));
 		this.ios.on('iosevent', (event) => this.#onMessage(event));
-		this.adb.startDeviceTracking();
+		this.debug.on('debugevent', (event) => this.#onMessage(event));
 	}
 
 	release() {
@@ -28,14 +32,29 @@ module.exports = class MainViewProvider {
 		this.adb.stopDeviceTracking();
 		this.ios.stop();
 		this.ios.stopDeviceTracking();
+		this.debug.dispose();
 	}
 
 	#service(source = this.#activeSource) {
-		return source === 'ios' ? this.ios : this.adb;
+		if (source === 'ios') return this.ios;
+		if (source === 'debug') return this.debug;
+		return this.adb;
 	}
 
 	#source(event) {
 		return event?.data?.source || this.#activeSource || 'android';
+	}
+
+	#stopInactiveServices(source) {
+		if (source !== 'android') this.adb.stop();
+		if (source !== 'ios') this.ios.stop();
+		if (source !== 'debug') this.debug.stop();
+	}
+
+	#ensureAndroidTracking() {
+		if (this.#androidTrackingStarted) return;
+		this.adb.startDeviceTracking();
+		this.#androidTrackingStarted = true;
 	}
 
 	// MESSAGING
@@ -47,8 +66,7 @@ module.exports = class MainViewProvider {
 					const source = this.#source(event);
 					this.#activeSource = source;
 					this.#paused = false;
-					if (source === 'android') this.ios.stop();
-					else this.adb.stop();
+					this.#stopInactiveServices(source);
 					await this.#service(source).start(event.data);
 					break;
 				}
@@ -69,8 +87,7 @@ module.exports = class MainViewProvider {
 					const source = this.#source(event);
 					this.#activeSource = source;
 					this.#paused = false;
-					if (source === 'android') this.ios.stop();
-					else this.adb.stop();
+					this.#stopInactiveServices(source);
 					await this.#service(source).restart(event.data);
 					break;
 				}
@@ -101,20 +118,25 @@ module.exports = class MainViewProvider {
 						vsc.showErrorPopup(msg);
 					});
 					break;
-				case 'devices':
-					this.#service(this.#source(event)).listDevices()
-						.then(devices => this.#postMessage({ type: 'devices', data: { devices } }))
+				case 'devices': {
+					const source = this.#source(event);
+					if (source === 'android' && isAdbAvailable()) this.#ensureAndroidTracking();
+					this.#service(source).listDevices()
+						.then(devices => this.#postMessage({ type: 'devices', data: { source, devices } }))
 						.catch(err => {
-							if (this.#source(event) === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
-							this.#postMessage({ type: 'devices', data: { devices: [] } });
+							if (source === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+							this.#postMessage({ type: 'devices', data: { source, devices: [] } });
 							vsc.showErrorPopup(err.message || err);
 						});
 					break;
-				case 'packages':
-					this.#service(this.#source(event)).listPackages(event.data.deviceId)
-						.then(packages => this.#postMessage({ type: 'packages', data: { packages } }))
+				}
+				case 'packages': {
+					const source = this.#source(event);
+					this.#service(source).listPackages(event.data.deviceId)
+						.then(packages => this.#postMessage({ type: 'packages', data: { source, packages } }))
 						.catch(err => vsc.showErrorPopup(err.message || err));
 					break;
+				}
 				case 'save-tag-group': {
 					const config = vscode.workspace.getConfiguration('logcatLens');
 					const groups = { ...config.get('tagGroups', {}) };
@@ -136,19 +158,26 @@ module.exports = class MainViewProvider {
 					this.#postMessage({ type: 'tag-groups', data: { groups: grps } });
 					break;
 				}
-				case 'package-info':
-					this.#service(this.#source(event)).getPackageInfo(event.data.deviceId, event.data.packageName)
-						.then(info => this.#postMessage({ type: 'package-info', data: info }))
+				case 'package-info': {
+					const source = this.#source(event);
+					this.#service(source).getPackageInfo(event.data.deviceId, event.data.packageName)
+						.then(info => this.#postMessage({ type: 'package-info', data: { source, ...info } }))
 						.catch(() => {});
 					break;
-				case 'fetch-tags':
-					this.#service(this.#source(event)).listTags(event.data.deviceId)
-						.then(tags => this.#postMessage({ type: 'tags', data: { tags } }))
+				}
+				case 'fetch-tags': {
+					const source = this.#source(event);
+					this.#service(source).listTags(event.data.deviceId)
+						.then(tags => this.#postMessage({ type: 'tags', data: { source, tags } }))
 						.catch(() => {});
 					break;
-				case 'check-adb':
-					this.#postMessage({ type: 'adb-status', data: { available: isAdbAvailable() } });
+				}
+				case 'check-adb': {
+					const available = isAdbAvailable();
+					if (available) this.#ensureAndroidTracking();
+					this.#postMessage({ type: 'adb-status', data: { available } });
 					break;
+				}
 				case 'install-adb':
 					downloadAndInstallAdb().then(ok => {
 						this.#postMessage({ type: 'adb-status', data: { available: !!ok } });
@@ -174,6 +203,12 @@ module.exports = class MainViewProvider {
 						this.#postMessage({ type: 'log', data: { log: event.data } });
 					}
 					break;
+				case 'debug.log':
+					if (this.#activeSource !== 'debug') break;
+					if (!this.#paused) {
+						this.#postMessage({ type: 'log', data: { log: event.data } });
+					}
+					break;
 
 				case 'adb.package-changed':
 					if (this.#activeSource !== 'android') break;
@@ -188,10 +223,16 @@ module.exports = class MainViewProvider {
 				case 'adb.devices-changed':
 					if (this.#activeSource !== 'android') break;
 					this.adb.listDevices()
-						.then(devices => this.#postMessage({ type: 'devices', data: { devices } }))
+						.then(devices => this.#postMessage({ type: 'devices', data: { source: 'android', devices } }))
 						.catch(err => {
 							if (this.#isAdbMissingError(err)) this.#sendAdbMissing();
 						});
+					break;
+				case 'debug.devices-changed':
+					if (this.#activeSource !== 'debug') break;
+					this.debug.listDevices()
+						.then(devices => this.#postMessage({ type: 'devices', data: { source: 'debug', devices } }))
+						.catch(err => vsc.showErrorPopup(err.message || err));
 					break;
 
 				case 'adb.closed':
@@ -200,6 +241,10 @@ module.exports = class MainViewProvider {
 					break;
 				case 'ios.closed':
 					if (this.#activeSource !== 'ios') break;
+					this.#postMessage({ type: 'stop' });
+					break;
+				case 'debug.closed':
+					if (this.#activeSource !== 'debug') break;
 					this.#postMessage({ type: 'stop' });
 					break;
 
@@ -212,6 +257,12 @@ module.exports = class MainViewProvider {
 					break;
 				case 'ios.error':
 					if (this.#activeSource !== 'ios') break;
+					vsc.showErrorPopup(event.data.toString());
+					this.#service().stop();
+					this.#postMessage({ type: 'stop' });
+					break;
+				case 'debug.error':
+					if (this.#activeSource !== 'debug') break;
 					vsc.showErrorPopup(event.data.toString());
 					this.#service().stop();
 					this.#postMessage({ type: 'stop' });
@@ -234,6 +285,8 @@ module.exports = class MainViewProvider {
 	#sendAdbMissing() {
 		resetAdbCache();
 		this.adb.stop();
+		this.adb.stopDeviceTracking();
+		this.#androidTrackingStarted = false;
 		this.#postMessage({ type: 'adb-status', data: { available: false } });
 	}
 

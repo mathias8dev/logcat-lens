@@ -287,7 +287,7 @@ logcat-lens {
 		}
 
 		#device-select { min-width: 140px; }
-		#log-source-select { min-width: 86px; }
+		#log-source-select { min-width: 96px; }
 		#package-input { width: 140px; }
 		#search-input { width: 160px; }
 		#search-matches { padding-inline: 4px; opacity: .7; font-size: 11px; white-space: nowrap; }

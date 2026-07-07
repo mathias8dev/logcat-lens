@@ -108,16 +108,19 @@ class Logcat extends HTMLElementBase {
 				}
 				break;
 			case 'devices':
+				if (event.data.source && event.data.source !== this.source) return;
 				this.toggleLoading(false);
 				this.setDevices(event.data.devices);
 				break;
 			case 'packages':
+				if (event.data.source && event.data.source !== this.source) return;
 				this.availablePackages = event.data.packages;
 				if (document.activeElement === this.packageInput && this.packageInput.value) {
 					this.showPackageDropdown(this.packageInput.value);
 				}
 				break;
 			case 'tags':
+				if (event.data.source && event.data.source !== this.source) return;
 				event.data.tags.forEach(t => this.knownTags.add(t));
 				break;
 			case 'tag-groups':
@@ -133,6 +136,7 @@ class Logcat extends HTMLElementBase {
 				this._showLifecycleEvent(event.data);
 				break;
 			case 'package-info':
+				if (event.data.source && event.data.source !== this.source) return;
 				this._showPackageInfo(event.data);
 				break;
 			case 'stop':
@@ -146,7 +150,7 @@ class Logcat extends HTMLElementBase {
 	}
 
 	setLogSource(source) {
-		if (!['android', 'ios'].includes(source) || source === this.source) return;
+		if (!['android', 'ios', 'debug'].includes(source) || source === this.source) return;
 		if (this.isPlaying) this.postMessage({ type: 'stop', data: { source: this.source } });
 
 		this.source = source;
@@ -174,8 +178,10 @@ class Logcat extends HTMLElementBase {
 
 	updateSourceLabels() {
 		const isIOS = this.source === 'ios';
-		this.packageInput.placeholder = isIOS ? 'Bundle ID' : 'Package';
-		this.deviceSelect.setAttribute('aria-label', isIOS ? 'iOS device' : 'Android device');
+		const isDebug = this.source === 'debug';
+		this.packageInput.placeholder = isDebug ? 'Package or session' : isIOS ? 'Bundle ID' : 'Package';
+		this.deviceSelect.setAttribute('aria-label', isDebug ? 'Debug session' : isIOS ? 'iOS device' : 'Android device');
+		if (this.pkgColumnTitle) this.pkgColumnTitle.textContent = isDebug ? 'Source' : isIOS ? 'Bundle' : 'Package';
 	}
 
 	// ACTIONS
@@ -700,6 +706,11 @@ class Logcat extends HTMLElementBase {
 	queueLogEntry(log) {
 		log.text = `${log.timestamp} ${log.pkg || ''} ${log.tag} ${log.message}`.toLowerCase();
 		if (log.tag) this.knownTags.add(log.tag.trim());
+		if (this.source === 'debug' && log.platform === 'debug' && log.pkg && !this.availablePackages.includes(log.pkg)) {
+			this.availablePackages.push(log.pkg);
+			this.availablePackages.sort();
+			if (document.activeElement === this.packageInput) this.showPackageDropdown(this.packageInput.value);
+		}
 		this._classifyMediaContinuation(log);
 		this._pendingLogs.push(log);
 
@@ -903,7 +914,7 @@ class Logcat extends HTMLElementBase {
 				const kind = d.kind ? ` data-kind="${this.escapeAttr(d.kind)}"` : '';
 				return `<option value="${this.escapeAttr(d.id)}"${kind}${disabled}>${this.escapeHtml(d.model)}${this.escapeHtml(status)}</option>`;
 			}).join('')
-			: `<option value="">No ${this.source === 'ios' ? 'iOS' : 'Android'} devices found</option>`;
+			: `<option value="">No ${this.source === 'debug' ? 'debug sessions' : this.source === 'ios' ? 'iOS devices' : 'Android devices'} found</option>`;
 		// Restore previous selection if still available
 		if (prevValue && [...this.deviceSelect.options].some(o => o.value === prevValue && !o.disabled)) {
 			this.deviceSelect.value = prevValue;
@@ -1487,7 +1498,7 @@ class Logcat extends HTMLElementBase {
 		if (!filtered.length) { this.hidePackageDropdown(); return; }
 
 		dropdown.innerHTML = filtered.slice(0, 50).map(p =>
-			`<div class="pkg-item" onmousedown="${this.handle}.selectPackage('${p}')">${p}</div>`
+			`<div class="pkg-item" data-pkg="${this.escapeAttr(p)}" onmousedown="${this.handle}.selectPackage(this.dataset.pkg)">${this.escapeHtml(p)}</div>`
 		).join('');
 		dropdown.style.display = 'block';
 	}
@@ -1513,7 +1524,7 @@ class Logcat extends HTMLElementBase {
 
 	renderPackages() {
 		this.packageChips.innerHTML = this.selectedPackages.map((p, i) =>
-			`<span class="pkg-chip">${p.split('.').pop()}<span class="pkg-remove" title="${p}" onclick="${this.handle}.removePackage(${i})">\u00d7</span></span>`
+			`<span class="pkg-chip">${this.escapeHtml(p.split('.').pop())}<span class="pkg-remove" title="${this.escapeAttr(p)}" onclick="${this.handle}.removePackage(${i})">\u00d7</span></span>`
 		).join('');
 		// Hide lifecycle badge if not exactly 1 package
 		if (this.selectedPackages.length !== 1) {
@@ -2193,6 +2204,7 @@ class Logcat extends HTMLElementBase {
 						<select id="log-source-select">
 							<option value="android">Android</option>
 							<option value="ios">iOS</option>
+							<option value="debug">Debug</option>
 						</select>
 					</div>
 
@@ -2231,7 +2243,7 @@ class Logcat extends HTMLElementBase {
 				<column-header id="col-header">
 					<span class="col col-timestamp" data-col="timestamp">Timestamp<span class="col-resize" data-col="timestamp"></span></span>
 					<span class="col col-tag" data-col="tag">Tag<span class="col-resize" data-col="tag"></span></span>
-					<span class="col col-pkg" data-col="pkg">Package<span class="col-resize" data-col="pkg"></span></span>
+					<span class="col col-pkg" data-col="pkg"><span id="pkg-column-title">Package</span><span class="col-resize" data-col="pkg"></span></span>
 					<span class="col col-pid" data-col="pid">PID<span class="col-resize" data-col="pid"></span></span>
 					<span class="col col-badge" data-col="badge">Lvl<span class="col-resize" data-col="badge"></span></span>
 					<span class="col col-message">Message</span>
