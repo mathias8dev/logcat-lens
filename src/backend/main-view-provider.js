@@ -267,6 +267,10 @@ module.exports = class MainViewProvider {
 					this.#service().stop();
 					this.#postMessage({ type: 'stop' });
 					break;
+				case 'debug.warning':
+					if (this.#activeSource !== 'debug') break;
+					vsc.showWarningPopup(event.data.toString());
+					break;
 			}
 
 		} catch (err) {

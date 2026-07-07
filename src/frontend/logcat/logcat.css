@@ -248,11 +248,11 @@ logcat-lens {
 			align-items: center;
 			background: var(--input-bg);
 			border-radius: 2px;
+			min-width: 0;
 
 			> * { flex-shrink: 0; border-radius: 0; }
 			> :is(input, select) {
 				flex: 1 1 auto;
-				width: fit-content;
 				min-width: 0;
 			}
 			> *:first-child { border-radius: 2px 0 0 2px; }
@@ -286,8 +286,21 @@ logcat-lens {
 			font-size: 12px;
 		}
 
-		#device-select { min-width: 140px; }
-		#log-source-select { min-width: 96px; }
+		.source-group {
+			flex: 0 0 104px;
+		}
+		.source-group #log-source-select {
+			width: 100%;
+		}
+		.device-group {
+			flex: 0 1 260px;
+			min-width: 190px;
+			max-width: min(360px, 34vw);
+		}
+		.device-group #device-select {
+			width: 100%;
+			min-width: 0;
+		}
 		#package-input { width: 140px; }
 		#search-input { width: 160px; }
 		#search-matches { padding-inline: 4px; opacity: .7; font-size: 11px; white-space: nowrap; }
@@ -668,6 +681,9 @@ logcat-lens {
 		}
 		entry message a.log-link:hover {
 			color: #82bcff;
+		}
+		entry message .log-ansi .log-link {
+			color: inherit;
 		}
 
 		entry message .log-binary-chip,
