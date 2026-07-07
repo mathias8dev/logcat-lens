@@ -893,6 +893,13 @@ logcat-lens {
 		display: inline-block;
 		margin: 4px 0;
 	}
+	.log-detail-body a.log-link {
+		color: #4ea1ff;
+		text-decoration: underline;
+	}
+	.log-detail-body .log-ansi .log-link {
+		color: inherit;
+	}
 	.log-detail-body .log-detail-img,
 	.log-detail-body .log-detail-video {
 		max-width: 100%;

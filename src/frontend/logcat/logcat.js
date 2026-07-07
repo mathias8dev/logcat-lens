@@ -1226,7 +1226,7 @@ class Logcat extends HTMLElementBase {
 					const text = seg.type === 'json' ? seg.text : seg.value;
 					parts.push(text);
 					const span = document.createElement('span');
-					span.textContent = text;
+					span.innerHTML = this._formatAnsiText(text);
 					body.appendChild(span);
 				}
 			}
