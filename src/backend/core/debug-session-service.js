@@ -10,6 +10,7 @@ const JAVA_LEVEL_RE = new RegExp(`\\b(${JAVA_LEVEL_PATTERN})\\b`, 'i');
 const LOGGER_RE = new RegExp(`^${JAVA_LOGGER_PATTERN}$`);
 const DEBUG_TERMINAL_COMMAND_RE = /(^|[\s"'=/\\])(java|gradle|gradlew|mvn|mvnw|kotlin|kotlinc)([\s"'$]|$)/i;
 const ANSI_RE = /[\u001b\u009b][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+const SPRING_BOOT_LOG_RE = new RegExp(`^(\\d{4}-\\d{2}-\\d{2}T\\S+)\\s+(${JAVA_LEVEL_PATTERN})\\s+(\\d+)\\s+---\\s+(?:\\[[^\\]]*\\]\\s+)+(${JAVA_LOGGER_PATTERN})\\s*:\\s*(.*)$`, 'i');
 const JAVA_LOG_PATTERNS = [
 	new RegExp(`^.*?\\b(${JAVA_LEVEL_PATTERN})\\s+\\d+\\s+---\\s+\\[[^\\]]*\\]\\s+(${JAVA_LOGGER_PATTERN})\\s*(?::|-)?\\s*(.*)$`, 'i'),
 	new RegExp(`^.*?\\b(${JAVA_LEVEL_PATTERN})\\s+\\[[^\\]]*\\]\\s+(${JAVA_LOGGER_PATTERN})\\s*(?:-|:)\\s*(.*)$`, 'i'),
@@ -103,6 +104,24 @@ function parseJavaLogLine(line) {
 	const text = stripAnsi(rawText);
 	if (!text || !JAVA_LEVEL_RE.test(text)) return null;
 
+	const springMatch = text.match(SPRING_BOOT_LOG_RE);
+	if (springMatch) {
+		const [, timestamp, level, pid, logger, messageText] = springMatch;
+		const loggerName = normalizeJavaLogger(logger);
+		const message = messageText.trim() || text;
+		if (isLoggerName(loggerName)) {
+			return {
+				timestamp: formatTimestamp(timestamp),
+				pid,
+				level: level.toUpperCase(),
+				priority: mapJavaPriority(level),
+				logger: loggerName,
+				pkg: packageFromLogger(loggerName),
+				message: rawSliceForVisibleText(rawText, text, message),
+			};
+		}
+	}
+
 	for (const pattern of JAVA_LOG_PATTERNS) {
 		const match = text.match(pattern);
 		if (!match) continue;
@@ -115,24 +134,24 @@ function parseJavaLogLine(line) {
 		if (!isLoggerName(logger)) continue;
 
 		const message = (match[3] || text).trim() || text;
-		let rawMessage = message;
-		if (rawText.includes('\u001b') || rawText.includes('\u009b')) {
-			const visibleStart = text.lastIndexOf(message);
-			if (visibleStart >= 0) {
-				rawMessage = rawText.slice(rawIndexForVisibleIndex(rawText, visibleStart)).trim() || rawText;
-			}
-		}
-
 		return {
 			level: level.toUpperCase(),
 			priority: mapJavaPriority(level),
 			logger,
 			pkg: packageFromLogger(logger),
-			message: rawMessage,
+			message: rawSliceForVisibleText(rawText, text, message),
 		};
 	}
 
 	return null;
+}
+
+function rawSliceForVisibleText(rawText, visibleText, visibleSlice) {
+	if (!rawText.includes('\u001b') && !rawText.includes('\u009b')) return visibleSlice;
+
+	const visibleStart = visibleText.lastIndexOf(visibleSlice);
+	if (visibleStart < 0) return rawText;
+	return rawText.slice(rawIndexForVisibleIndex(rawText, visibleStart)).trim() || rawText;
 }
 
 class DebugSessionService extends EventEmitter {
@@ -431,8 +450,8 @@ class DebugSessionService extends EventEmitter {
 	#toLog(session, category, message, body, parsedLog) {
 		const isTerminal = category === TERMINAL_CATEGORY;
 		return {
-			timestamp: formatTimestamp(),
-			pid: '',
+			timestamp: parsedLog?.timestamp || formatTimestamp(),
+			pid: parsedLog?.pid || '',
 			tid: body.threadId ? String(body.threadId) : '',
 			priority: parsedLog?.priority || mapPriority(category),
 			tag: parsedLog?.logger || category,
