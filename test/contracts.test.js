@@ -3,12 +3,16 @@ const assert = require('node:assert/strict');
 
 const {
 	DEFAULT_SOURCE,
+	PARSERS,
 	SOURCES,
 	SOURCE_EVENT_KINDS,
 	UI_MESSAGES,
 	VIEW_MESSAGES,
 	isSource,
+	normalizeParser,
 	normalizeSource,
+	parserDefinition,
+	parsersForSource,
 	sourceEvent,
 	sourceEventType,
 } = require('../src/shared/contracts');
@@ -36,4 +40,13 @@ test('keeps common message names centralized', () => {
 	assert.equal(UI_MESSAGES.CHECK_ADB, 'check-adb');
 	assert.equal(VIEW_MESSAGES.LOG, 'log');
 	assert.equal(VIEW_MESSAGES.STOP, 'stop');
+});
+
+test('defines parser metadata by source', () => {
+	assert.deepEqual(parsersForSource(SOURCES.ANDROID), [PARSERS.ANDROID_LOGCAT]);
+	assert.equal(parsersForSource(SOURCES.DEBUG).includes(PARSERS.DEBUG_SPRING), true);
+	assert.equal(parserDefinition(PARSERS.DEBUG_JSON, SOURCES.DEBUG).facetLabel, 'Context');
+	assert.equal(parserDefinition(PARSERS.IOS_UNIFIED, SOURCES.IOS).primaryColumnLabel, 'Bundle');
+	assert.equal(normalizeParser('bad', SOURCES.DEBUG), PARSERS.DEBUG_AUTO);
+	assert.equal(normalizeParser(PARSERS.DEBUG_JSON, SOURCES.ANDROID), PARSERS.ANDROID_LOGCAT);
 });

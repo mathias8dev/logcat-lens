@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const EventEmitter = require('events');
 const { cleanOutput, cleanTerminalOutput, formatTimestamp, mapPriority, parseDebugLogLine } = require('../parsers/debug-log-parser');
-const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
+const { PARSERS, SOURCES, SOURCE_EVENT_KINDS, normalizeParser, sourceEventType } = require('../../shared/contracts');
 
 const ACTIVE_SESSION_ID = '__active_debug_session__';
 const TERMINAL_CATEGORY = 'terminal';
@@ -20,6 +20,7 @@ class DebugSessionService extends EventEmitter {
 	#warnedTerminalSessions = new Set();
 	#terminalExecutions = new WeakSet();
 	#disposables = [];
+	#parserId = PARSERS.DEBUG_AUTO;
 	lastParams;
 
 	constructor(context) {
@@ -113,6 +114,7 @@ class DebugSessionService extends EventEmitter {
 
 	start(params = {}) {
 		this.lastParams = params;
+		this.#parserId = normalizeParser(params.parser, SOURCES.DEBUG);
 		this.#targetSessionId = params.deviceId || ACTIVE_SESSION_ID;
 		this.#currentSessionId = this.#targetSessionId === ACTIVE_SESSION_ID
 			? vscode.debug.activeDebugSession?.id || ''
@@ -238,7 +240,7 @@ class DebugSessionService extends EventEmitter {
 	#emitLogLine(session, category, line, body = {}) {
 		if (!line) return;
 
-		const parsedLog = parseDebugLogLine(line);
+		const parsedLog = parseDebugLogLine(line, this.#parserId);
 		if (parsedLog?.logger) this.#tags.add(parsedLog.logger);
 		if (parsedLog?.pkg) this.#packages.add(parsedLog.pkg);
 		this.#tags.add(category);
@@ -313,6 +315,7 @@ class DebugSessionService extends EventEmitter {
 			message: parsedLog?.message || message,
 			pkg: parsedLog?.pkg || session.name || session.type || session.id,
 			platform: DEBUG_SOURCE,
+			parser: parsedLog?.parser || this.#parserId,
 			sessionId: session.id,
 			sessionType: session.type,
 			debugCategory: category,

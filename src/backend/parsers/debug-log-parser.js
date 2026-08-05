@@ -1,3 +1,5 @@
+const { PARSERS, SOURCES, normalizeParser } = require('../../shared/contracts');
+
 const ANDROID_PRIORITY_PATTERN = '[VDIWEF]';
 const JAVA_LEVEL_PATTERN = 'TRACE|DEBUG|INFO|INFORMATION|LOG|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|FINEST|FINER|FINE|CONFIG|SILLY|VERBOSE|EMERG|EMERGENCY|ALERT';
 const JAVA_LOGGER_PATTERN = '[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)+';
@@ -128,27 +130,39 @@ function normalizeAndroidTag(tag) {
 	return (tag || '').trim().replace(/\s+/g, ' ');
 }
 
-function parseDebugLogLine(line) {
+function parseDebugLogLine(line, parserId = PARSERS.DEBUG_AUTO) {
 	const rawText = (line || '').trim();
 	const text = stripAnsi(rawText);
 	if (!text) return null;
 
-	const androidLog = parseAndroidLogLine(rawText, text);
-	if (androidLog) return androidLog;
-
-	const structuredLog = parseStructuredJsonLogLine(rawText, text);
-	if (structuredLog) return structuredLog;
-
-	const javaLog = parseJavaLogLine(rawText, text);
-	if (javaLog) return javaLog;
-
-	const frameworkLog = parseFrameworkLogLine(rawText, text);
-	if (frameworkLog) return frameworkLog;
-
-	const genericLog = parseGenericLogLine(rawText, text);
-	if (genericLog) return genericLog;
+	const normalizedParser = normalizeParser(parserId, SOURCES.DEBUG);
+	for (const step of parserStepsFor(normalizedParser)) {
+		const parsed = step.parse(rawText, text);
+		if (parsed) return { parser: step.id, ...parsed };
+	}
 
 	return null;
+}
+
+function parserStepsFor(parserId) {
+	const steps = [
+		{ id: PARSERS.DEBUG_ANDROID, parse: parseAndroidLogLine },
+		{ id: PARSERS.DEBUG_JSON, parse: parseStructuredJsonLogLine },
+		{ id: PARSERS.DEBUG_SPRING, parse: parseSpringBootLogLine },
+		{ id: PARSERS.DEBUG_JAVA, parse: parseJavaLogLine },
+		{ id: PARSERS.DEBUG_PYTHON, parse: parsePythonLogLine },
+		{ id: PARSERS.DEBUG_NODE, parse: parseNodeLogLine },
+		{ id: PARSERS.DEBUG_NODE, parse: parseNestLogLine },
+		{ id: PARSERS.DEBUG_GO, parse: parseGoLogLine },
+		{ id: PARSERS.DEBUG_RUST, parse: parseRustLogLine },
+		{ id: PARSERS.DEBUG_DOTNET, parse: parseDotNetLogLine },
+		{ id: PARSERS.DEBUG_RUBY, parse: parseRubyLogLine },
+		{ id: PARSERS.DEBUG_LARAVEL, parse: parseLaravelLogLine },
+		{ id: PARSERS.DEBUG_SYSLOG, parse: parseSyslogLine },
+		{ id: PARSERS.DEBUG_GENERIC, parse: parseGenericLogLine },
+	];
+	if (parserId === PARSERS.DEBUG_AUTO) return steps;
+	return steps.filter(step => step.id === parserId);
 }
 
 function parseAndroidLogLine(rawText, text) {
@@ -189,24 +203,6 @@ function parseAndroidLogLine(rawText, text) {
 function parseJavaLogLine(rawText, text) {
 	if (!JAVA_LEVEL_RE.test(text)) return null;
 
-	const springMatch = text.match(SPRING_BOOT_LOG_RE);
-	if (springMatch) {
-		const [, timestamp, level, pid, logger, messageText] = springMatch;
-		const loggerName = normalizeJavaLogger(logger);
-		const message = messageText.trim() || text;
-		if (isLoggerName(loggerName)) {
-			return {
-				timestamp: formatTimestamp(timestamp),
-				pid,
-				level: level.toUpperCase(),
-				priority: mapJavaPriority(level),
-				logger: loggerName,
-				pkg: packageFromLogger(loggerName),
-				message: rawSliceForVisibleText(rawText, text, message),
-			};
-		}
-	}
-
 	for (const pattern of JAVA_LOG_PATTERNS) {
 		const match = text.match(pattern);
 		if (!match) continue;
@@ -226,6 +222,30 @@ function parseJavaLogLine(rawText, text) {
 			pkg: packageFromLogger(logger),
 			message: rawSliceForVisibleText(rawText, text, message),
 		};
+	}
+
+	return null;
+}
+
+function parseSpringBootLogLine(rawText, text) {
+	if (!JAVA_LEVEL_RE.test(text)) return null;
+
+	const springMatch = text.match(SPRING_BOOT_LOG_RE);
+	if (springMatch) {
+		const [, timestamp, level, pid, logger, messageText] = springMatch;
+		const loggerName = normalizeJavaLogger(logger);
+		const message = messageText.trim() || text;
+		if (isLoggerName(loggerName)) {
+			return {
+				timestamp: formatTimestamp(timestamp),
+				pid,
+				level: level.toUpperCase(),
+				priority: mapJavaPriority(level),
+				logger: loggerName,
+				pkg: packageFromLogger(loggerName),
+				message: rawSliceForVisibleText(rawText, text, message),
+			};
+		}
 	}
 
 	return null;

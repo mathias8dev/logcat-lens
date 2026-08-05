@@ -1,9 +1,13 @@
 const {
 	DEFAULT_SOURCE,
+	PARSERS,
 	SOURCES,
 	SOURCE_VALUES,
 	UI_MESSAGES,
 	VIEW_MESSAGES,
+	normalizeParser,
+	parserDefinition,
+	parsersForSource,
 } = globalThis.LogcatLensContracts;
 
 class Logcat extends HTMLElementBase {
@@ -25,6 +29,7 @@ class Logcat extends HTMLElementBase {
 	isPaused = false;
 	state = 'idle';
 	source = DEFAULT_SOURCE;
+	selectedParser = PARSERS.ANDROID_LOGCAT;
 
 	availablePackages = [];
 	selectedPackages = [];
@@ -52,6 +57,7 @@ class Logcat extends HTMLElementBase {
 	connectedCallback() {
 		super.render(this.render());
 		this.logSourceSelect.addEventListener('change', () => this.setLogSource(this.logSourceSelect.value));
+		this.parserSelect.addEventListener('change', () => this.setParser(this.parserSelect.value));
 
 		// Virtual scroll handler
 		let scrollTicking = false;
@@ -82,6 +88,7 @@ class Logcat extends HTMLElementBase {
 		this.initTagInput();
 		this.initColumnResize();
 		this.renderLevelChips();
+		this.renderParserOptions();
 		this.updateSourceLabels();
 		this.updateStatus();
 		this.postMessage({ type: UI_MESSAGES.LOAD_TAG_GROUPS });
@@ -162,7 +169,9 @@ class Logcat extends HTMLElementBase {
 		if (this.isPlaying) this.postMessage({ type: UI_MESSAGES.STOP, data: { source: this.source } });
 
 		this.source = source;
+		this.selectedParser = normalizeParser(null, source);
 		this.logSourceSelect.value = source;
+		this.renderParserOptions();
 		this.availablePackages = [];
 		this.selectedPackages = [];
 		this.tags = [];
@@ -184,12 +193,50 @@ class Logcat extends HTMLElementBase {
 		else this.refreshDevices();
 	}
 
+	setParser(parserId) {
+		const next = normalizeParser(parserId, this.source);
+		if (next === this.selectedParser) return;
+		this.selectedParser = next;
+		this.availablePackages = [];
+		this.knownTags = new Set();
+		this.selectedPackages = [];
+		this.tags = [];
+		this.renderPackages();
+		this.renderTags();
+		this.rebuildFilteredIndices();
+		this.updateSourceLabels();
+		if (this.isPlaying) this.restart();
+	}
+
+	renderParserOptions() {
+		const parsers = parsersForSource(this.source);
+		this.selectedParser = normalizeParser(this.selectedParser, this.source);
+		if (!this.parserSelect) return;
+		this.parserSelect.innerHTML = parsers.map(id => {
+			const parser = parserDefinition(id, this.source);
+			return `<option value="${this.escapeAttr(parser.id)}">${this.escapeHtml(parser.label)}</option>`;
+		}).join('');
+		this.parserSelect.value = this.selectedParser;
+		this.parserSelect.disabled = parsers.length <= 1;
+	}
+
+	currentParserDefinition() {
+		return parserDefinition(this.selectedParser, this.source);
+	}
+
 	updateSourceLabels() {
 		const isIOS = this.source === SOURCES.IOS;
 		const isDebug = this.source === SOURCES.DEBUG;
-		this.packageInput.placeholder = isDebug ? 'Package or session' : isIOS ? 'Bundle ID' : 'Package';
+		const parser = this.currentParserDefinition();
 		this.deviceSelect.setAttribute('aria-label', isDebug ? 'Debug session' : isIOS ? 'iOS device' : 'Android device');
-		if (this.pkgColumnTitle) this.pkgColumnTitle.textContent = isDebug ? 'Source' : isIOS ? 'Bundle' : 'Package';
+		this.packageInput.placeholder = parser.scopePlaceholder;
+		this.tagTextInput.placeholder = parser.facetPlaceholder;
+		this.packageInput.disabled = !parser.supportsScope;
+		this.tagTextInput.disabled = !parser.supportsFacet;
+		this.querySelector('.package-group')?.classList.toggle('disabled', !parser.supportsScope);
+		this.querySelector('.tag-group')?.classList.toggle('disabled', !parser.supportsFacet);
+		if (this.pkgColumnTitle) this.pkgColumnTitle.textContent = parser.primaryColumnLabel;
+		if (this.tagColumnTitle) this.tagColumnTitle.textContent = parser.facetColumnLabel;
 	}
 
 	// ACTIONS
@@ -201,6 +248,7 @@ class Logcat extends HTMLElementBase {
 			type: UI_MESSAGES.START,
 			data: {
 				source: this.source,
+				parser: this.selectedParser,
 				deviceId: this.deviceSelect.value,
 				packages: this.selectedPackages,
 				tag: this.tags,
@@ -250,6 +298,7 @@ class Logcat extends HTMLElementBase {
 			type: UI_MESSAGES.RESTART,
 			data: {
 				source: this.source,
+				parser: this.selectedParser,
 				deviceId: this.deviceSelect.value,
 				packages: this.selectedPackages,
 				tag: this.tags,
@@ -2241,6 +2290,12 @@ class Logcat extends HTMLElementBase {
 						<button class="ic refresh" data-tooltip="Refresh Devices" onclick="${this.handle}.refreshDevices()"></button>
 					</div>
 
+					<div class="filter-group parser-group">
+						<select id="parser-select">
+							<option value="android-logcat">Logcat</option>
+						</select>
+					</div>
+
 					<div class="filter-group tag-group">
 						<div id="tag-chips" class="tag-chips"></div>
 						<input type="text" id="tag-text-input" placeholder="Tags" autocomplete="off">
@@ -2268,7 +2323,7 @@ class Logcat extends HTMLElementBase {
 
 				<column-header id="col-header">
 					<span class="col col-timestamp" data-col="timestamp">Timestamp<span class="col-resize" data-col="timestamp"></span></span>
-					<span class="col col-tag" data-col="tag">Tag<span class="col-resize" data-col="tag"></span></span>
+					<span class="col col-tag" data-col="tag"><span id="tag-column-title">Tag</span><span class="col-resize" data-col="tag"></span></span>
 					<span class="col col-pkg" data-col="pkg"><span id="pkg-column-title">Package</span><span class="col-resize" data-col="pkg"></span></span>
 					<span class="col col-pid" data-col="pid">PID<span class="col-resize" data-col="pid"></span></span>
 					<span class="col col-badge" data-col="badge">Lvl<span class="col-resize" data-col="badge"></span></span>

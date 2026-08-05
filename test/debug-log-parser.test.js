@@ -2,12 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { parseDebugLogLine } = require('../src/backend/parsers/debug-log-parser');
+const { PARSERS } = require('../src/shared/contracts');
 
 test('parses Spring Boot logs with logger, pid, level and package', () => {
 	const line = '2026-07-08T01:22:43.234+02:00 DEBUG 1612561 --- [suza-backend] [or-http-epoll-5] o.s.w.s.adapter.HttpWebHandlerAdapter : [ad3b35ae-8] HTTP GET "/api/feed?page=0&size=10"';
 	const parsed = parseDebugLogLine(line);
 
 	assert.equal(parsed.priority, 'D');
+	assert.equal(parsed.parser, PARSERS.DEBUG_SPRING);
 	assert.equal(parsed.pid, '1612561');
 	assert.equal(parsed.logger, 'o.s.w.s.adapter.HttpWebHandlerAdapter');
 	assert.equal(parsed.pkg, 'o.s.w.s.adapter');
@@ -85,4 +87,14 @@ test('keeps ANSI sequences in parsed message slices', () => {
 	assert.equal(parsed.priority, 'I');
 	assert.equal(parsed.logger, 'com.example.App');
 	assert.equal(parsed.message, '\u001b[32mhello\u001b[0m');
+});
+
+test('can force a specific debug parser', () => {
+	const springLine = '2026-07-08T01:22:43.234+02:00 DEBUG 1612561 --- [suza-backend] [or-http-epoll-5] o.s.w.s.adapter.HttpWebHandlerAdapter : Completed 200 OK';
+	const jsonLine = '{"level":40,"service":"api","msg":"slow"}';
+
+	assert.equal(parseDebugLogLine(springLine, PARSERS.DEBUG_JSON), null);
+	assert.equal(parseDebugLogLine(springLine, PARSERS.DEBUG_SPRING).parser, PARSERS.DEBUG_SPRING);
+	assert.equal(parseDebugLogLine(jsonLine, PARSERS.DEBUG_JSON).parser, PARSERS.DEBUG_JSON);
+	assert.equal(parseDebugLogLine(jsonLine, PARSERS.DEBUG_SPRING), null);
 });
