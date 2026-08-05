@@ -44,7 +44,7 @@ const LogIngestion = globalThis.LogViewUniversalLogIngestion;
 
 class LogView extends HTMLElementBase {
 	BUFFER_SIZE = 100000;    // Can be huge now — only JS array, not DOM
-	ROW_HEIGHT = 18;         // Fixed row height in px (line-height: 1.5 * 12px)
+	ROW_HEIGHT = 19;         // Fixed row height in px, matched to logview.css line-height
 	OVERSCAN = 20;           // Extra rows rendered above/below viewport
 
 	buffer = [];             // All log objects

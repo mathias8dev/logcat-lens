@@ -6,7 +6,7 @@ logview-universal {
 
 	button.ic,
 	.log-detail-btn.ic-only {
-		--icon-color: var(--vscode-icon-foreground, #c5c5c5);
+		--icon-color: var(--vscode-foreground, var(--vscode-icon-foreground, #c5c5c5));
 		--icon-size: 18px;
 		position: relative;
 		display: inline-flex;
@@ -273,6 +273,8 @@ logview-universal {
 		.filter-group {
 			display: flex;
 			align-items: center;
+			position: relative;
+			color: var(--vscode-input-foreground, var(--vscode-foreground));
 			background: var(--input-bg);
 			border-radius: 2px;
 			min-width: 0;
@@ -293,6 +295,7 @@ logview-universal {
 		button.ic {
 			--size: 24px;
 			--icon-size: 16px;
+			--icon-color: var(--vscode-input-foreground, var(--vscode-foreground));
 			flex-shrink: 0;
 			height: var(--size);
 			width: var(--size);
@@ -302,6 +305,11 @@ logview-universal {
 			cursor: pointer;
 
 			&:hover { background-color: var(--button-secondary-hover); }
+			&:disabled {
+				--icon-color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+				cursor: default;
+				opacity: 0.55;
+			}
 			&.active {
 				background-color: var(--vscode-toolbar-activeBackground, rgba(255,255,255,0.15));
 				outline: 1px solid var(--vscode-focusBorder, #007acc);
@@ -309,10 +317,34 @@ logview-universal {
 			}
 		}
 
-		input, select {
-			height: 24px;
-			font-size: 12px;
-		}
+			input, select {
+				height: 24px;
+				font-size: 12px;
+			}
+			select {
+				appearance: none;
+				padding-right: 26px;
+				color: var(--vscode-input-foreground, var(--vscode-foreground));
+				background: var(--vscode-input-background);
+			}
+			.source-group::after,
+			.device-group::after,
+			.parser-group::after {
+				content: "";
+				position: absolute;
+				top: 50%;
+				right: 7px;
+				width: 14px;
+				height: 14px;
+				pointer-events: none;
+				background-color: currentColor;
+				transform: translateY(-50%);
+				-webkit-mask: url('../../../res/icons/lucide/chevron-down.svg') center / contain no-repeat;
+				mask: url('../../../res/icons/lucide/chevron-down.svg') center / contain no-repeat;
+			}
+			.device-group::after {
+				right: 30px;
+			}
 
 		.source-group {
 			flex: 0 0 104px;
@@ -531,9 +563,9 @@ logview-universal {
 		height: 26px;
 		font-size: 11px;
 		font-weight: 600;
-		letter-spacing: 0.3px;
-		color: var(--vscode-descriptionForeground);
-		background: var(--vscode-editor-background);
+		letter-spacing: 0;
+		color: var(--vscode-foreground);
+		background: var(--vscode-sideBar-background, var(--vscode-editor-background));
 		border-bottom: 1px solid var(--vscode-panel-border);
 		user-select: none;
 
@@ -607,8 +639,9 @@ logview-universal {
 		position: relative;
 		scrollbar-gutter: stable;
 		font-family: var(--vscode-editor-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
-		font-size: 12px;
-		line-height: 18px;
+		font-size: 12.5px;
+		line-height: 19px;
+		color: var(--vscode-editor-foreground);
 
 		#viewport {
 			position: relative;
@@ -624,35 +657,36 @@ logview-universal {
 			box-sizing: border-box;
 			white-space: nowrap;
 
-			&:hover { background: rgba(255,255,255,0.03); }
+			&:hover { background: rgba(120, 180, 255, 0.08); }
 
 			/* Priority colors — Android Studio style */
-			&.V { color: #888; }
-			&.V badge { color: #888; }
+			&.V { color: var(--vscode-editor-foreground); }
+			&.V badge { color: #b2b2b2; }
+			&.V tag { color: #b2b2b2; }
 
 			&.D { color: var(--vscode-editor-foreground); }
-			&.D badge { color: #BBBBBB; }
+			&.D badge { color: #d2d2d2; }
 
-			&.I { color: #48A85B; }
+			&.I { color: var(--vscode-editor-foreground); }
 			&.I badge { background: #2E7D32; color: #fff; }
-			&.I tag { color: #48A85B; }
+			&.I tag { color: #57c46b; }
 
-			&.W { color: #BBB529; }
+			&.W { color: var(--vscode-editor-foreground); }
 			&.W badge { background: #F57F17; color: #000; }
-			&.W tag { color: #BBB529; }
-			&.W { background: rgba(187,181,41,0.04); }
+			&.W tag { color: #d8ca45; }
+			&.W { background: rgba(245, 127, 23, 0.07); }
 
-			&.E { background: rgba(255,50,50,0.12); color: #F44336; }
+			&.E { background: rgba(244, 67, 54, 0.12); color: var(--vscode-editor-foreground); }
 			&.E badge { background: #C62828; color: #fff; }
-			&.E tag { color: #F44336; }
+			&.E tag { color: #ff6259; }
 
-			&.F { background: rgba(255,50,50,0.18); color: #F44336; font-weight: bold; }
+			&.F { background: rgba(244, 67, 54, 0.18); color: var(--vscode-editor-foreground); font-weight: bold; }
 			&.F badge { background: #B71C1C; color: #fff; }
-			&.F tag { color: #F44336; }
+			&.F tag { color: #ff6259; }
 
-			&.L { color: #5B9BD5; }
+			&.L { color: var(--vscode-editor-foreground); }
 			&.L badge { background: #1565C0; color: #fff; }
-			&.L tag { color: #5B9BD5; }
+			&.L tag { color: #72b7ff; }
 
 			&.active-match {
 				background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(255,200,0,0.3));
@@ -662,7 +696,8 @@ logview-universal {
 			timestamp {
 				flex-shrink: 0;
 				width: var(--col-timestamp, 160px);
-				opacity: 0.6;
+				color: var(--vscode-descriptionForeground);
+				opacity: 0.82;
 				white-space: nowrap;
 			}
 
@@ -672,7 +707,8 @@ logview-universal {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
-				font-weight: 500;
+				font-weight: 600;
+				opacity: 0.95;
 			}
 
 			pkg {
@@ -681,13 +717,15 @@ logview-universal {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
-				opacity: 0.5;
+				color: var(--vscode-descriptionForeground);
+				opacity: 0.72;
 			}
 
 			pid {
 				flex-shrink: 0;
 				width: var(--col-pid, 55px);
-				opacity: 0.5;
+				color: var(--vscode-descriptionForeground);
+				opacity: 0.72;
 				white-space: nowrap;
 				text-align: right;
 				padding-right: 8px;
@@ -709,6 +747,7 @@ logview-universal {
 			message {
 				flex: 0 0 auto;
 				white-space: nowrap;
+				color: var(--vscode-editor-foreground);
 			}
 		}
 
@@ -908,8 +947,9 @@ logview-universal {
 		overflow: auto;
 		padding: 10px 12px;
 		font-family: var(--vscode-editor-font-family, monospace);
-		font-size: 12px;
-		color: var(--vscode-foreground, #ccc);
+		font-size: 12.5px;
+		line-height: 1.55;
+		color: var(--vscode-editor-foreground, var(--vscode-foreground, #ddd));
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
@@ -952,13 +992,15 @@ logview-universal {
 		--icon: url('../../../res/icons/lucide/trash-2.svg');
 	}
 	.ic.play {
-		--icon-color: #34c759;
+		--icon-color: var(--vscode-debugIcon-startForeground, #34c759);
 		--icon: url('../../../res/icons/lucide/play.svg');
 	}
 	.ic.stop {
+		--icon-color: var(--vscode-debugIcon-stopForeground, #f48771);
 		--icon: url('../../../res/icons/lucide/square.svg');
 	}
 	.ic.pause {
+		--icon-color: var(--vscode-debugIcon-pauseForeground, #75beff);
 		--icon: url('../../../res/icons/lucide/pause.svg');
 	}
 	.ic.restart {
