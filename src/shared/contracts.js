@@ -76,8 +76,9 @@
 		return SOURCE_VALUES.includes(value);
 	}
 
-	function normalizeSource(value) {
-		return isSource(value) ? value : DEFAULT_SOURCE;
+	function normalizeSource(value, fallback = DEFAULT_SOURCE) {
+		if (isSource(value)) return value;
+		return isSource(fallback) ? fallback : DEFAULT_SOURCE;
 	}
 
 	function sourceEventType(source, kind) {

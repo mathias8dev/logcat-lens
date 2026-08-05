@@ -19,6 +19,7 @@ test('defines the stable log sources', () => {
 	assert.equal(isSource(SOURCES.ANDROID), true);
 	assert.equal(isSource('unknown'), false);
 	assert.equal(normalizeSource('unknown'), SOURCES.ANDROID);
+	assert.equal(normalizeSource('unknown', SOURCES.DEBUG), SOURCES.DEBUG);
 });
 
 test('maps source event type strings back to source and kind', () => {

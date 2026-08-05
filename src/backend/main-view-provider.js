@@ -5,6 +5,7 @@ const util = require('./core/utils');
 const AdbService = require('./core/adb-service');
 const IOSService = require('./core/ios-service');
 const DebugSessionService = require('./core/debug-session-service');
+const LogSourceRegistry = require('./log-source-registry');
 const { isAdbAvailable, downloadAndInstallAdb, resetAdbCache } = require('./core/adb-service');
 const {
 	DEFAULT_SOURCE,
@@ -12,7 +13,6 @@ const {
 	SOURCE_EVENT_KINDS,
 	UI_MESSAGES,
 	VIEW_MESSAGES,
-	normalizeSource,
 	sourceEvent,
 } = require('../shared/contracts');
 
@@ -22,7 +22,7 @@ module.exports = class MainViewProvider {
 	#paused = false;
 	#activeSource = DEFAULT_SOURCE;
 	#androidTrackingStarted = false;
-	#services = new Map();
+	#sources;
 	adb;
 	ios;
 	debug;
@@ -32,35 +32,30 @@ module.exports = class MainViewProvider {
 		this.adb = new AdbService();
 		this.ios = new IOSService();
 		this.debug = new DebugSessionService(context);
-		this.#services.set(SOURCES.ANDROID, this.adb);
-		this.#services.set(SOURCES.IOS, this.ios);
-		this.#services.set(SOURCES.DEBUG, this.debug);
-		this.adb.on('adbevent', (event) => this.#onMessage(event));
-		this.ios.on('iosevent', (event) => this.#onMessage(event));
-		this.debug.on('debugevent', (event) => this.#onMessage(event));
+		this.#sources = new LogSourceRegistry({
+			android: this.adb,
+			ios: this.ios,
+			debug: this.debug,
+			onEvent: (event) => this.#onMessage(event),
+		});
 	}
 
 	release() {
-		this.adb.stop();
-		this.adb.stopDeviceTracking();
-		this.ios.stop();
-		this.ios.stopDeviceTracking();
-		this.debug.dispose();
+		this.#sources.stopAll();
+		this.#sources.stopDeviceTracking();
+		this.#sources.dispose();
 	}
 
 	#service(source = this.#activeSource) {
-		return this.#services.get(normalizeSource(source)) || this.adb;
+		return this.#sources.service(source);
 	}
 
 	#source(event) {
-		return normalizeSource(event?.data?.source || this.#activeSource);
+		return this.#sources.sourceFromMessage(event, this.#activeSource);
 	}
 
 	#stopInactiveServices(source) {
-		const activeSource = normalizeSource(source);
-		for (const [candidate, service] of this.#services.entries()) {
-			if (candidate !== activeSource) service.stop();
-		}
+		this.#sources.stopInactive(source);
 	}
 
 	#ensureAndroidTracking() {
