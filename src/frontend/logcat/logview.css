@@ -4,6 +4,27 @@ logview-universal {
 	height: 100vh;
 	overflow: hidden;
 
+	button.ic,
+	.log-detail-btn.ic-only {
+		--icon-color: var(--vscode-icon-foreground, #c5c5c5);
+		--icon-size: 18px;
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+	button.ic::before,
+	.log-detail-btn.ic-only::before,
+	.adb-missing-icon::before {
+		content: "";
+		display: block;
+		width: var(--icon-size);
+		height: var(--icon-size);
+		background-color: var(--icon-color);
+		-webkit-mask: var(--icon) center / contain no-repeat;
+		mask: var(--icon) center / contain no-repeat;
+	}
+
 	/* ADB MISSING OVERLAY */
 	.adb-missing-overlay {
 		position: absolute;
@@ -20,9 +41,13 @@ logview-universal {
 		padding: 32px;
 	}
 	.adb-missing-icon {
-		font-size: 48px;
+		--icon: url('../../../res/icons/lucide/triangle-alert.svg');
+		--icon-color: var(--vscode-notificationsWarningIcon-foreground, #f0c674);
+		--icon-size: 42px;
+		display: flex;
+		justify-content: center;
 		margin-bottom: 8px;
-		opacity: 0.6;
+		opacity: 0.85;
 	}
 	.adb-missing-content h3 {
 		margin: 0 0 8px;
@@ -92,12 +117,13 @@ logview-universal {
 
 		button.ic {
 			--size: 28px;
+			--icon-size: 18px;
 			flex-shrink: 0;
 			height: var(--size);
 			width: var(--size);
 			border: none;
 			border-radius: 4px;
-			background: transparent url() center / 18px no-repeat;
+			background: transparent;
 			cursor: pointer;
 			opacity: 0.7;
 			transition: opacity 0.15s, background-color 0.15s;
@@ -150,12 +176,13 @@ logview-universal {
 
 		button.ic {
 			--size: 20px;
+			--icon-size: 14px;
 			flex-shrink: 0;
 			height: var(--size);
 			width: var(--size);
 			border: none;
 			border-radius: 3px;
-			background: transparent url() center / 14px no-repeat;
+			background: transparent;
 			cursor: pointer;
 			opacity: 0.8;
 			padding: 0;
@@ -265,10 +292,11 @@ logview-universal {
 
 		button.ic {
 			--size: 24px;
+			--icon-size: 16px;
 			flex-shrink: 0;
 			height: var(--size);
 			width: var(--size);
-			background: transparent url() center / 16px no-repeat;
+			background: transparent;
 			border: none;
 			border-radius: 2px;
 			cursor: pointer;
@@ -870,14 +898,10 @@ logview-universal {
 		background: var(--vscode-button-hoverBackground, #2a2d2e);
 	}
 	.log-detail-btn.ic-only {
+		--icon-size: 14px;
 		width: 24px;
 		height: 22px;
 		padding: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 14px;
-		line-height: 1;
 	}
 	.log-detail-body {
 		flex: 1;
@@ -925,43 +949,44 @@ logview-universal {
 
 	/* ICONS */
 	.ic.clear {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><path fill="%23e8eaed" d="M7 21c-.55 0-1.02-.196-1.412-.587A1.926 1.926 0 0 1 5 19V6a.968.968 0 0 1-.713-.287A.968.968 0 0 1 4 5c0-.283.096-.52.287-.713A.968.968 0 0 1 5 4h4c0-.283.096-.52.287-.712A.968.968 0 0 1 10 3h4c.283 0 .52.096.713.288.191.191.287.429.287.712h4c.283 0 .52.096.712.287.192.192.288.43.288.713s-.096.52-.288.713A.968.968 0 0 1 19 6v13c0 .55-.196 1.02-.587 1.413A1.926 1.926 0 0 1 17 21H7ZM17 6H7v13h10V6Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/trash-2.svg');
 	}
 	.ic.play {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><path fill="%2334C759" d="M8 5v14l11-7z"/></svg>');
+		--icon-color: #34c759;
+		--icon: url('../../../res/icons/lucide/play.svg');
 	}
 	.ic.stop {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><rect x="6" y="6" width="12" height="12" rx="1" fill="%23E8EAED"/></svg>');
+		--icon: url('../../../res/icons/lucide/square.svg');
 	}
 	.ic.pause {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><rect x="6" y="5" width="4" height="14" rx="1" fill="%23E8EAED"/><rect x="14" y="5" width="4" height="14" rx="1" fill="%23E8EAED"/></svg>');
+		--icon: url('../../../res/icons/lucide/pause.svg');
 	}
 	.ic.restart {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/rotate-ccw.svg');
 	}
 	.ic.refresh {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/refresh-cw.svg');
 	}
 	.ic.scroll-top {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M480-528 296-344l-56-56 240-240 240 240-56 56-184-184ZM200-160v-80h560v80H200Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/arrow-up-to-line.svg');
 	}
 	.ic.scroll-bottom {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M480-432 240-672l56-56 184 184 184-184 56 56-240 240ZM200-160v-80h560v80H200Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/arrow-down-to-line.svg');
 	}
 	.ic.soft-wrap {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M160-200v-80h480q50 0 85-35t35-85q0-50-35-85t-85-35H360l72 72-56 58-170-170 170-170 56 58-72 72h280q83 0 141.5 58.5T840-400q0 83-58.5 141.5T640-200H160Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/wrap-text.svg');
 	}
 	.ic.arrow-up {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M440-647v447q0 17-11.5 28.5T400-160q-17 0-28.5-11.5T360-200v-447L164-451q-12 12-28 11.5T108-452q-11-12-11.5-28T108-508l272-264q6-6 13-8.5t15-2.5q8 0 15 2.5t13 8.5l264 264q11 11 11 27.5T700-452q-12 12-28.5 12T643-452L440-647Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/arrow-up-to-line.svg');
 	}
 	.ic.arrow-down {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e3e3e3"><path d="M440-313v-447q0-17 11.5-28.5T480-800q17 0 28.5 11.5T520-760v447l196-196q12-12 28-11.5t28 12.5q11 12 11.5 28T772-452L508-188q-6 6-13 8.5t-15 2.5q-8 0-15-2.5t-13-8.5L188-452q-11-11-11-27.5t11-28.5q12-12 28.5-12t28.5 12l195 195Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/arrow-down-to-line.svg');
 	}
 	.ic.view-mode {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M320-280q17 0 28.5-11.5T360-320q0-17-11.5-28.5T320-360H160q-17 0-28.5 11.5T120-320q0 17 11.5 28.5T160-280h160Zm0-160q17 0 28.5-11.5T360-480q0-17-11.5-28.5T320-520H160q-17 0-28.5 11.5T120-480q0 17 11.5 28.5T160-440h160Zm0-160q17 0 28.5-11.5T360-640q0-17-11.5-28.5T320-680H160q-17 0-28.5 11.5T120-640q0 17 11.5 28.5T160-600h160Zm480 320q17 0 28.5-11.5T840-320q0-17-11.5-28.5T800-360H480q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280h320Zm0-160q17 0 28.5-11.5T840-480q0-17-11.5-28.5T800-520H480q-17 0-28.5 11.5T440-480q0 17 11.5 28.5T480-440h320Zm0-160q17 0 28.5-11.5T840-640q0-17-11.5-28.5T800-680H480q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600h320Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/list-filter.svg');
 	}
 	.ic.tag-group-btn {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M160-160v-80h480v80H160Zm0-200v-80h640v80H160Zm0-200v-80h640v80H160Zm0-200v-80h480v80H160Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/tags.svg');
 	}
 	.tag-group-menu {
 		position: absolute;
@@ -1078,9 +1103,15 @@ logview-universal {
 		}
 	}
 	.ic.search-filter {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M400-240v-80h160v80H400ZM240-440v-80h480v80H240ZM120-640v-80h720v80H120Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/funnel.svg');
 	}
 	.ic.export {
-		background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="%23e8eaed"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>');
+		--icon: url('../../../res/icons/lucide/download.svg');
+	}
+	.log-detail-btn.copy {
+		--icon: url('../../../res/icons/lucide/copy.svg');
+	}
+	.log-detail-btn.close {
+		--icon: url('../../../res/icons/lucide/x.svg');
 	}
 }

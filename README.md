@@ -2,7 +2,7 @@
 
 A powerful mobile and debug-session log viewer for VS Code — stream, filter, and search logs without leaving your editor.
 
-![LogView Universal](res/screenshots/main.png)
+![LogView Universal](https://raw.githubusercontent.com/mathias8dev/logview-universal/main/res/screenshots/main.png)
 
 ## Features
 
@@ -21,11 +21,11 @@ A powerful mobile and debug-session log viewer for VS Code — stream, filter, a
 - **Inline media previews** — Image / audio / video responses logged as base64 are detected automatically (PNG, JPEG, GIF, WebP, BMP, MP3, WAV, OGG, MP4, PDF…) and rendered inline in the log row; click for full-size preview in the detail pane
 - **Clickable URLs** — HTTP/HTTPS links in messages open in your system browser
 
-![Inline media + detail pane](res/screenshots/media-preview.png)
+![Inline media + detail pane](https://raw.githubusercontent.com/mathias8dev/logview-universal/main/res/screenshots/media-preview.png)
 
-![Lifecycle & Tag Groups](res/screenshots/lifecycle.png)
+![Lifecycle & Tag Groups](https://raw.githubusercontent.com/mathias8dev/logview-universal/main/res/screenshots/lifecycle.png)
 
-![Filtering](res/screenshots/filtering.png)
+![Filtering](https://raw.githubusercontent.com/mathias8dev/logview-universal/main/res/screenshots/filtering.png)
 
 ## Inline Media Previews
 
@@ -57,7 +57,7 @@ Log.d("HTTP", Base64.encode(imageBytes).decodeToString())
 
 If ADB is not installed, LogView Universal will prompt you to install it with a single click — no Android Studio needed.
 
-![ADB Install](res/screenshots/adb-install.png)
+![ADB Install](https://raw.githubusercontent.com/mathias8dev/logview-universal/main/res/screenshots/adb-install.png)
 
 You can also set a custom ADB path in **Settings > LogView Universal > Adb Path**.
 

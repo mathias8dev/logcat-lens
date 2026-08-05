@@ -1,4 +1,4 @@
-const { PARSERS, SOURCES, normalizeParser } = require('../../shared/contracts');
+const { PARSERS, SOURCES, normalizeParser } = require('../../protocol/shared/contracts');
 
 const ANDROID_PRIORITY_PATTERN = '[VDIWEF]';
 const JAVA_LEVEL_PATTERN = 'TRACE|DEBUG|INFO|INFORMATION|LOG|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|FINEST|FINER|FINE|CONFIG|SILLY|VERBOSE|EMERG|EMERGENCY|ALERT';

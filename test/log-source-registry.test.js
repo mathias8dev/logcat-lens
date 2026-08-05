@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
 
 const LogSourceRegistry = require('../src/backend/log-source-registry');
-const { SOURCES } = require('../src/shared/contracts');
+const { SOURCES } = require('../src/protocol/shared/contracts');
 
 function service() {
 	const emitter = new EventEmitter();

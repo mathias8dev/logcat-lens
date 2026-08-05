@@ -9,8 +9,16 @@ const {
 	parserDefinition,
 	parsersForSource,
 } = globalThis.LogViewUniversalContracts;
+const {
+	LEVEL_NAMES: FILTER_LEVEL_NAMES,
+	LEVEL_ORDER: FILTER_LEVEL_ORDER,
+	logMatchesQuery,
+	rebuildFilteredIndices: buildFilteredIndices,
+	searchMatchesForIndices,
+	toggleLevelSelection,
+} = globalThis.LogViewUniversalFilterModel;
 
-class Logcat extends HTMLElementBase {
+class LogView extends HTMLElementBase {
 	BUFFER_SIZE = 100000;    // Can be huge now — only JS array, not DOM
 	ROW_HEIGHT = 18;         // Fixed row height in px (line-height: 1.5 * 12px)
 	OVERSCAN = 20;           // Extra rows rendered above/below viewport
@@ -696,16 +704,11 @@ class Logcat extends HTMLElementBase {
 	// ========================
 	// CLIENT-SIDE FILTERING
 	// ========================
-	LEVEL_ORDER = ['V', 'D', 'I', 'W', 'E', 'F', 'L'];
-	LEVEL_NAMES = { V: 'Verbose', D: 'Debug', I: 'Info', W: 'Warning', E: 'Error', F: 'Fatal', L: 'LogView Universal' };
+	LEVEL_ORDER = FILTER_LEVEL_ORDER;
+	LEVEL_NAMES = FILTER_LEVEL_NAMES;
 
 	toggleLevel(level) {
-		if (this.selectedLevels.has(level)) {
-			if (this.selectedLevels.size <= 1) return; // Keep at least one
-			this.selectedLevels.delete(level);
-		} else {
-			this.selectedLevels.add(level);
-		}
+		this.selectedLevels = toggleLevelSelection(this.selectedLevels, level);
 		this.renderLevelChips();
 		this.rebuildFilteredIndices();
 	}
@@ -718,38 +721,18 @@ class Logcat extends HTMLElementBase {
 	}
 
 	rebuildFilteredIndices() {
-		const hasTags = this.tags.length > 0;
-		const hasPkgs = this.selectedPackages.length > 0;
-		const allLevels = this.selectedLevels.size === this.LEVEL_ORDER.length;
-		const hasLevel = !allLevels;
-		const hasSearch = this.searchFilterMode && this.query;
-
-		this.filteredIndices = [];
-		const showL = this.selectedLevels.has('L');
-		for (let i = 0; i < this.buffer.length; i++) {
-			const log = this.buffer[i];
-			if (log._mediaContinuation) continue; // hide MEDIA base64 continuation lines
-			if (log.priority === 'L') {
-				if (showL) this.filteredIndices.push(i);
-				continue;
-			}
-			if (hasLevel && !this.selectedLevels.has(log.priority)) continue;
-			if (hasTags && !this.tags.includes((log.tag || '').trim())) continue;
-			if (hasPkgs && !this.selectedPackages.some(p => (log.pkg || '').includes(p))) continue;
-			if (hasSearch && !this.matchesQuery(log)) continue;
-			this.filteredIndices.push(i);
-		}
+		this.filteredIndices = buildFilteredIndices({
+			buffer: this.buffer,
+			tags: this.tags,
+			selectedPackages: this.selectedPackages,
+			selectedLevels: this.selectedLevels,
+			searchFilterMode: this.searchFilterMode,
+			query: this.query,
+		});
 
 		// Rebuild search matches against filtered view
 		if (this.query) {
-			this.matches = [];
-			const count = this.getDisplayCount();
-			for (let i = 0; i < count; i++) {
-				const log = this.getLogAtDisplayIndex(i);
-				if (this.matchesQuery(log)) {
-					this.matches.push(this.getBufferIndexForDisplayIndex(i));
-				}
-			}
+			this.matches = searchMatchesForIndices(this.buffer, this.filteredIndices, this.query);
 			this.currentMatch = -1;
 			this.updateSearchUI();
 		}
@@ -1962,15 +1945,8 @@ class Logcat extends HTMLElementBase {
 		if (q != this.query) {
 			this.query = q;
 			if (this.searchFilterMode) this.rebuildFilteredIndices();
-			this.matches = [];
 			// Search only within currently visible (filtered) entries
-			const count = this.getDisplayCount();
-			for (let i = 0; i < count; i++) {
-				const log = this.getLogAtDisplayIndex(i);
-				if (this.matchesQuery(log, q)) {
-					this.matches.push(this.getBufferIndexForDisplayIndex(i));
-				}
-			}
+			this.matches = searchMatchesForIndices(this.buffer, this.filteredIndices, q);
 			this.currentMatch = -1;
 		}
 
@@ -2010,7 +1986,7 @@ class Logcat extends HTMLElementBase {
 	}
 
 	matchesQuery(log, query) {
-		return log.text.includes((query || this.query).toLowerCase());
+		return logMatchesQuery(log, query || this.query);
 	}
 
 	scrollToMatch(bufferIndex) {
@@ -2241,7 +2217,7 @@ class Logcat extends HTMLElementBase {
 
 			<div id="adb-missing-overlay" class="adb-missing-overlay" style="display:none;">
 				<div class="adb-missing-content">
-					<div class="adb-missing-icon">&#9888;</div>
+					<div class="adb-missing-icon" aria-hidden="true"></div>
 					<h3>ADB Not Found</h3>
 					<p>Android Debug Bridge (ADB) is required to stream device logs.</p>
 					<div class="adb-missing-actions">
@@ -2340,8 +2316,8 @@ class Logcat extends HTMLElementBase {
 						<div id="log-detail-resize" class="log-detail-resize" title="Drag to resize"></div>
 						<div class="log-detail-header">
 							<span id="log-detail-title">Details</span>
-							<button id="log-detail-copy" class="log-detail-btn ic-only" data-tooltip="Copy" title="Copy">⧉</button>
-							<button id="log-detail-close" class="log-detail-btn ic-only" data-tooltip="Close" title="Close">×</button>
+							<button id="log-detail-copy" class="log-detail-btn ic-only copy" data-tooltip="Copy" title="Copy" aria-label="Copy"></button>
+							<button id="log-detail-close" class="log-detail-btn ic-only close" data-tooltip="Close" title="Close" aria-label="Close"></button>
 						</div>
 						<div id="log-detail-body" class="log-detail-body"></div>
 					</div>
@@ -2352,4 +2328,4 @@ class Logcat extends HTMLElementBase {
 	}
 }
 
-customElements.define('logview-universal', Logcat);
+customElements.define('logview-universal', LogView);

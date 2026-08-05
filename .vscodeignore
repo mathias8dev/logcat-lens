@@ -15,9 +15,14 @@ node_modules/**
 scripts/**
 *.vsix
 jsconfig.json
+esbuild.js
 tests/**
 test/**
 webview-debug.log
 res/logcat-lens-screenshot.png
+res/screenshots/**
+src/application/**
+src/backend/**
+src/shared/**
 docs/**
 DEVELOPING.md

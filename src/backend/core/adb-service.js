@@ -5,21 +5,14 @@ const { join } = require('path');
 const https = require('https');
 const EventEmitter = require('events');
 const vscode = require('vscode');
-const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
+const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../protocol/shared/contracts');
+const settings = require('../settings/logview-settings');
 
 const ADB_SOURCE = SOURCES.ANDROID;
-const SETTINGS_SECTION = 'logviewUniversal';
-const LEGACY_SETTINGS_SECTION = 'logcatLens';
-
-function configuredAdbPath() {
-	const configured = vscode.workspace.getConfiguration(SETTINGS_SECTION).get('adbPath');
-	if (configured) return configured;
-	return vscode.workspace.getConfiguration(LEGACY_SETTINGS_SECTION).get('adbPath');
-}
 
 function findAdb() {
 	// 1. User-configured path takes priority
-	const configured = configuredAdbPath();
+	const configured = settings.configuredAdbPath(vscode.workspace);
 	if (configured && existsSync(configured)) return configured;
 
 	// 2. ANDROID_HOME / ANDROID_SDK_ROOT env vars
@@ -146,7 +139,7 @@ async function downloadAndInstallAdb() {
 		try { require('fs').unlinkSync(zipPath); } catch { /* ignore */ }
 
 		// Auto-configure the setting and refresh cached path
-		await vscode.workspace.getConfiguration(SETTINGS_SECTION).update('adbPath', adbBin, vscode.ConfigurationTarget.Global);
+		await settings.updateAdbPath(vscode.workspace, vscode.ConfigurationTarget.Global, adbBin);
 		_adbPath = adbBin;
 		_adbWarningShown = false;
 
@@ -170,7 +163,7 @@ function getAdb() {
 			} else if (choice === 'Download Page') {
 				vscode.env.openExternal(vscode.Uri.parse('https://developer.android.com/tools/releases/platform-tools'));
 			} else if (choice === 'Set Path') {
-				vscode.commands.executeCommand('workbench.action.openSettings', `${SETTINGS_SECTION}.adbPath`);
+				vscode.commands.executeCommand('workbench.action.openSettings', settings.adbPathSettingId());
 			}
 		});
 	}
@@ -179,7 +172,7 @@ function getAdb() {
 
 // Reset cached path when settings change
 vscode.workspace.onDidChangeConfiguration(e => {
-	if (e.affectsConfiguration(`${SETTINGS_SECTION}.adbPath`) || e.affectsConfiguration(`${LEGACY_SETTINGS_SECTION}.adbPath`)) _adbPath = null;
+	if (settings.affectsAdbPath(e)) _adbPath = null;
 });
 
 class ADBService extends EventEmitter {

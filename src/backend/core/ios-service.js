@@ -5,7 +5,7 @@ const { basename, join } = require('path');
 const { tmpdir, platform } = require('os');
 const { fileURLToPath } = require('url');
 const EventEmitter = require('events');
-const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
+const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../protocol/shared/contracts');
 
 const IOS_SOURCE = SOURCES.IOS;
 

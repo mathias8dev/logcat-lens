@@ -7,6 +7,15 @@ const IOSService = require('./core/ios-service');
 const DebugSessionService = require('./core/debug-session-service');
 const LogSourceRegistry = require('./log-source-registry');
 const { isAdbAvailable, downloadAndInstallAdb, resetAdbCache } = require('./core/adb-service');
+const settings = require('./settings/logview-settings');
+const { renderMainWebviewHtml } = require('./webview/main-webview-html');
+const { copyLogText, exportLogs } = require('../application/log-document-usecases');
+const {
+	clearLogStream,
+	restartLogStream,
+	startLogStream,
+	stopLogStream,
+} = require('../application/log-stream-usecases');
 const {
 	DEFAULT_SOURCE,
 	SOURCES,
@@ -14,27 +23,15 @@ const {
 	UI_MESSAGES,
 	VIEW_MESSAGES,
 	sourceEvent,
-} = require('../shared/contracts');
-
-const SETTINGS_SECTION = 'logviewUniversal';
-const LEGACY_SETTINGS_SECTION = 'logcatLens';
-
-function configuration(section = SETTINGS_SECTION) {
-	return vscode.workspace.getConfiguration(section);
-}
-
-function savedTagGroups() {
-	return {
-		...configuration(LEGACY_SETTINGS_SECTION).get('tagGroups', {}),
-		...configuration(SETTINGS_SECTION).get('tagGroups', {}),
-	};
-}
+} = require('../protocol/shared/contracts');
 
 module.exports = class MainViewProvider {
 	#view;
 	#extensionURI;
-	#paused = false;
-	#activeSource = DEFAULT_SOURCE;
+	#state = {
+		paused: false,
+		activeSource: DEFAULT_SOURCE,
+	};
 	#androidTrackingStarted = false;
 	#sources;
 	adb;
@@ -68,8 +65,16 @@ module.exports = class MainViewProvider {
 		return this.#sources.sourceFromMessage(event, this.#activeSource);
 	}
 
-	#stopInactiveServices(source) {
-		this.#sources.stopInactive(source);
+	get #activeSource() {
+		return this.#state.activeSource;
+	}
+
+	get #paused() {
+		return this.#state.paused;
+	}
+
+	set #paused(value) {
+		this.#state.paused = value;
 	}
 
 	#ensureAndroidTracking() {
@@ -91,15 +96,11 @@ module.exports = class MainViewProvider {
 				// UI EVENTS
 				case UI_MESSAGES.START: {
 					const source = this.#source(event);
-					this.#activeSource = source;
-					this.#paused = false;
-					this.#stopInactiveServices(source);
-					await this.#service(source).start(event.data);
+					await startLogStream({ registry: this.#sources, state: this.#state, source, data: event.data });
 					break;
 				}
 				case UI_MESSAGES.STOP:
-					this.#service(this.#source(event)).stop();
-					this.#paused = false;
+					stopLogStream({ registry: this.#sources, state: this.#state, source: this.#source(event) });
 					break;
 				case UI_MESSAGES.PAUSE:
 					this.#paused = true;
@@ -108,27 +109,22 @@ module.exports = class MainViewProvider {
 					this.#paused = false;
 					break;
 				case UI_MESSAGES.CLEAR:
-					this.#service(this.#source(event)).clear();
+					clearLogStream({ registry: this.#sources, source: this.#source(event) });
 					break;
 				case UI_MESSAGES.RESTART: {
 					const source = this.#source(event);
-					this.#activeSource = source;
-					this.#paused = false;
-					this.#stopInactiveServices(source);
-					await this.#service(source).restart(event.data);
+					await restartLogStream({ registry: this.#sources, state: this.#state, source, data: event.data });
 					break;
 				}
 				case UI_MESSAGES.UPDATE_PACKAGES:
 					this.#service(this.#source(event)).updatePackages(event.data.packages);
 					break;
 				case UI_MESSAGES.COPY:
-					vsc.copyToClipboard(event.data.text);
+					copyLogText({ clipboard: vsc, text: event.data.text });
 					break;
-				case UI_MESSAGES.EXPORT: {
-					const doc = await vscode.workspace.openTextDocument({ content: event.data.logs, language: 'log' });
-					await vscode.window.showTextDocument(doc);
+				case UI_MESSAGES.EXPORT:
+					await exportLogs({ workspace: vscode.workspace, window: vscode.window, logs: event.data.logs });
 					break;
-				}
 				case UI_MESSAGES.APP_LAUNCH:
 					this.#service(this.#source(event)).launchApp(event.data.deviceId, event.data.packageName).catch(() => {});
 					break;
@@ -165,24 +161,22 @@ module.exports = class MainViewProvider {
 					break;
 				}
 				case UI_MESSAGES.SAVE_TAG_GROUP: {
-					const config = configuration();
-					const groups = savedTagGroups();
-					groups[event.data.name] = event.data.tags;
-					await config.update('tagGroups', groups, vscode.ConfigurationTarget.Global);
+					const groups = await settings.saveTagGroup(
+						vscode.workspace,
+						vscode.ConfigurationTarget.Global,
+						event.data.name,
+						event.data.tags,
+					);
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
 				case UI_MESSAGES.LOAD_TAG_GROUPS: {
-					const groups = savedTagGroups();
+					const groups = settings.savedTagGroups(vscode.workspace);
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
 				case UI_MESSAGES.DELETE_TAG_GROUP: {
-					const cfg = configuration();
-					const grps = savedTagGroups();
-					delete grps[event.data.name];
-					await cfg.update('tagGroups', grps, vscode.ConfigurationTarget.Global);
-					await configuration(LEGACY_SETTINGS_SECTION).update('tagGroups', grps, vscode.ConfigurationTarget.Global);
+					const grps = await settings.deleteTagGroup(vscode.workspace, vscode.ConfigurationTarget.Global, event.data.name);
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups: grps } });
 					break;
 				}
@@ -212,7 +206,7 @@ module.exports = class MainViewProvider {
 					});
 					break;
 				case UI_MESSAGES.OPEN_ADB_SETTINGS:
-					vscode.commands.executeCommand('workbench.action.openSettings', `${SETTINGS_SECTION}.adbPath`);
+					vscode.commands.executeCommand('workbench.action.openSettings', settings.adbPathSettingId());
 					break;
 				case UI_MESSAGES.OPEN_ADB_DOWNLOAD:
 					vscode.env.openExternal(vscode.Uri.parse('https://developer.android.com/tools/releases/platform-tools'));
@@ -299,30 +293,11 @@ module.exports = class MainViewProvider {
 
 	/** @param {vscode.Webview} webview */
 	#render(webview) {
-		const uri = (path) => webview.asWebviewUri(vscode.Uri.joinPath(this.#extensionURI, path));
-		const nonce = util.getNonce();
-
-		return `
-			<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta http-equiv="Content-Security-Policy" content="img-src https: data:; style-src 'unsafe-inline' ${webview.cspSource};">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-				<link href="${uri('src/frontend/style.css')}" rel="stylesheet">
-				<script nonce="${nonce}" src="${uri('src/shared/contracts.js')}"></script>
-				<script nonce="${nonce}" src="${uri('src/frontend/core/html-element-base.js')}"></script>
-
-				<link href="${uri('src/frontend/logcat/logcat.css')}" rel="stylesheet">
-				<script nonce="${nonce}" src="${uri('src/frontend/logcat/ansi-renderer.js')}"></script>
-				<script nonce="${nonce}" src="${uri('src/frontend/logcat/logcat.js')}"></script>
-			</head>
-
-			<body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-				<logview-universal></logview-universal>
-			</body>
-			</html>
-		`;
+		return renderMainWebviewHtml({
+			webview,
+			extensionUri: this.#extensionURI,
+			nonce: util.getNonce(),
+			vscode,
+		});
 	}
 }

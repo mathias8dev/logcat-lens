@@ -1,4 +1,4 @@
-const { DEFAULT_SOURCE, SOURCES, normalizeSource } = require('../shared/contracts');
+const { DEFAULT_SOURCE, SOURCES, normalizeSource } = require('../protocol/shared/contracts');
 
 class LogSourceRegistry {
 	#services;

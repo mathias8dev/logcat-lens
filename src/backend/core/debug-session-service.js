@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const EventEmitter = require('events');
 const { cleanOutput, cleanTerminalOutput, formatTimestamp, mapPriority, parseDebugLogLine } = require('../parsers/debug-log-parser');
-const { PARSERS, SOURCES, SOURCE_EVENT_KINDS, normalizeParser, sourceEventType } = require('../../shared/contracts');
+const { PARSERS, SOURCES, SOURCE_EVENT_KINDS, normalizeParser, sourceEventType } = require('../../protocol/shared/contracts');
 
 const ACTIVE_SESSION_ID = '__active_debug_session__';
 const TERMINAL_CATEGORY = 'terminal';

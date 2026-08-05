@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { parseDebugLogLine } = require('../src/backend/parsers/debug-log-parser');
-const { PARSERS } = require('../src/shared/contracts');
+const { PARSERS } = require('../src/protocol/shared/contracts');
 
 test('parses Spring Boot logs with logger, pid, level and package', () => {
 	const line = '2026-07-08T01:22:43.234+02:00 DEBUG 1612561 --- [suza-backend] [or-http-epoll-5] o.s.w.s.adapter.HttpWebHandlerAdapter : [ad3b35ae-8] HTTP GET "/api/feed?page=0&size=10"';

@@ -44,14 +44,14 @@
 		"onView:logview-universal-main-view",
 		"onDebug"
 	],
-	"main": "./src/backend/extension.js",
+	"main": "./dist/extension.cjs",
 	"contributes": {
 		"viewsContainers": {
 			"panel": [
 				{
 					"id": "logview-universal-container",
 					"title": "LogView Universal",
-					"icon": ""
+					"icon": "res/icons/lucide/logs.svg"
 				}
 			]
 		},
@@ -63,7 +63,7 @@
 					"name": "",
 					"contextualTitle": "LogView Universal",
 					"visibility": "visible",
-					"icon": ""
+					"icon": "res/icons/lucide/logs.svg"
 				}
 			]
 		},
@@ -84,16 +84,20 @@
 		}
 	},
 	"scripts": {
+		"build": "node esbuild.js --production",
+		"build:extension": "node esbuild.js",
+		"watch:extension": "node esbuild.js --watch",
 		"lint": "eslint .",
 		"test": "node --test",
 		"package": "npm run vsix -- release",
 		"package:pre-release": "npm run vsix -- experimental",
-		"vsix": "node scripts/package-vsix.js"
+		"vsix": "npm run build && node scripts/package-vsix.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.90.0",
 		"@types/node": "20.x",
+		"@types/vscode": "^1.90.0",
 		"@vscode/vsce": "^3.6.0",
+		"esbuild": "^0.28.1",
 		"eslint": "^8.57.0"
 	}
 }

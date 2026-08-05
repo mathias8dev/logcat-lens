@@ -15,7 +15,7 @@ const {
 	parsersForSource,
 	sourceEvent,
 	sourceEventType,
-} = require('../src/shared/contracts');
+} = require('../src/protocol/shared/contracts');
 
 test('defines the stable log sources', () => {
 	assert.equal(DEFAULT_SOURCE, SOURCES.ANDROID);
