@@ -10,8 +10,19 @@ vsc-extension-quickstart.md
 
 .local/**
 .git/**
+.github/**
+node_modules/**
+scripts/**
+*.vsix
+jsconfig.json
+esbuild.js
 tests/**
+test/**
 webview-debug.log
 res/logcat-lens-screenshot.png
-docs/PERFORMANCE.md
+res/screenshots/**
+src/application/**
+src/backend/**
+src/shared/**
+docs/**
 DEVELOPING.md

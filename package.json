@@ -1,11 +1,11 @@
 {
-	"name": "logcat-lens",
-	"displayName": "Logcat Lens",
+	"name": "logview-universal",
+	"displayName": "LogView Universal",
 	"icon": "res/icon.png",
-	"description": "A powerful Android Logcat viewer for VS Code — stream, filter, and search logs without leaving your editor.",
-	"version": "3.0.0",
-	"publisher": "AshishKumarD",
-	"author": "Ashish Kumar",
+	"description": "A powerful mobile and debug-session log viewer for VS Code — stream, filter, and search logs without leaving your editor.",
+	"version": "3.1.0",
+	"publisher": "mathias8dev",
+	"license": "MIT",
 	"engines": {
 		"vscode": "^1.90.0"
 	},
@@ -15,67 +15,94 @@
 	],
 	"keywords": [
 		"android",
+		"ios",
 		"logcat",
+		"simulator",
 		"adb",
+		"debug console",
+		"debug session",
 		"debug",
+		"java",
+		"log4j",
 		"logs",
 		"log viewer",
 		"android studio"
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/AshishKumarD/logcat-lens"
+		"url": "https://github.com/mathias8dev/logview-universal"
+	},
+	"homepage": "https://github.com/mathias8dev/logview-universal#readme",
+	"bugs": {
+		"url": "https://github.com/mathias8dev/logview-universal/issues"
 	},
 	"galleryBanner": {
-		"color": "#1a1a2e",
+		"color": "#1e1e1e",
 		"theme": "dark"
 	},
-	"activationEvents": [],
-	"main": "./src/backend/extension.js",
+	"activationEvents": [
+		"onView:logview-universal-main-view",
+		"onDebug"
+	],
+	"main": "./dist/extension.cjs",
 	"contributes": {
 		"viewsContainers": {
 			"panel": [
 				{
-					"id": "logcat-lens-container",
-					"title": "Logcat Lens",
-					"icon": ""
+					"id": "logview-universal-container",
+					"title": "LogView Universal",
+					"icon": "res/icons/lucide/logs.svg"
 				}
 			]
 		},
 		"views": {
-			"logcat-lens-container": [
+			"logview-universal-container": [
 				{
-					"id": "logcat-lens-main-view",
+					"id": "logview-universal-main-view",
 					"type": "webview",
 					"name": "",
-					"contextualTitle": "Logcat Lens",
+					"contextualTitle": "LogView Universal",
 					"visibility": "visible",
-					"icon": ""
+					"icon": "res/icons/lucide/logs.svg"
 				}
 			]
 		},
 		"configuration": {
-			"title": "Logcat Lens",
+			"title": "LogView Universal",
 			"properties": {
-				"logcatLens.adbPath": {
+				"logviewUniversal.adbPath": {
 					"type": "string",
 					"default": "",
 					"description": "Absolute path to the adb binary. Leave empty to auto-detect from ANDROID_HOME or common install locations."
 				},
-				"logcatLens.tagGroups": {
+				"logviewUniversal.tagGroups": {
 					"type": "object",
 					"default": {},
 					"description": "Saved tag groups. Keys are group names, values are arrays of tag strings."
+				},
+				"logviewUniversal.stripAnsiOnExport": {
+					"type": "boolean",
+					"default": true,
+					"description": "Remove ANSI escape sequences from exported log documents. Disable this to preserve raw terminal color/style codes."
 				}
 			}
 		}
 	},
 	"scripts": {
-		"lint": "eslint ."
+		"build": "node esbuild.js --production",
+		"build:extension": "node esbuild.js",
+		"watch:extension": "node esbuild.js --watch",
+		"lint": "eslint .",
+		"test": "node --test",
+		"package": "npm run vsix -- release",
+		"package:pre-release": "npm run vsix -- experimental",
+		"vsix": "npm run build && node scripts/package-vsix.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.90.0",
 		"@types/node": "20.x",
+		"@types/vscode": "^1.90.0",
+		"@vscode/vsce": "^3.6.0",
+		"esbuild": "^0.28.1",
 		"eslint": "^8.57.0"
 	}
 }
