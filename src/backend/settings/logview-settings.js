@@ -18,6 +18,10 @@ function savedTagGroups(workspace) {
 	};
 }
 
+function stripAnsiOnExport(workspace) {
+	return configuration(workspace).get('stripAnsiOnExport', true);
+}
+
 async function updateAdbPath(workspace, target, adbPath) {
 	await configuration(workspace).update('adbPath', adbPath, target);
 }
@@ -55,5 +59,6 @@ module.exports = {
 	deleteTagGroup,
 	saveTagGroup,
 	savedTagGroups,
+	stripAnsiOnExport,
 	updateAdbPath,
 };

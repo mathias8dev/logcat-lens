@@ -79,6 +79,11 @@
 					"type": "object",
 					"default": {},
 					"description": "Saved tag groups. Keys are group names, values are arrays of tag strings."
+				},
+				"logviewUniversal.stripAnsiOnExport": {
+					"type": "boolean",
+					"default": true,
+					"description": "Remove ANSI escape sequences from exported log documents. Disable this to preserve raw terminal color/style codes."
 				}
 			}
 		}

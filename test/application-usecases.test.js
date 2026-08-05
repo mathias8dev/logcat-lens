@@ -81,3 +81,22 @@ test('copies and exports log text through ports', async () => {
 	assert.deepEqual(copied, ['line']);
 	assert.deepEqual(shown, [doc]);
 });
+
+test('strips ansi sequences from exported logs by default', async () => {
+	const opened = [];
+	const workspace = {
+		openTextDocument: async options => {
+			opened.push(options);
+			return { uri: 'untitled:log' };
+		},
+	};
+	const window = { showTextDocument: async () => {} };
+
+	await exportLogs({ workspace, window, logs: '\u001b[32mDEBUG\u001b[0m plain' });
+	await exportLogs({ workspace, window, logs: '\u001b[32mDEBUG\u001b[0m plain', stripAnsi: false });
+
+	assert.deepEqual(opened.map(options => options.content), [
+		'DEBUG plain',
+		'\u001b[32mDEBUG\u001b[0m plain',
+	]);
+});

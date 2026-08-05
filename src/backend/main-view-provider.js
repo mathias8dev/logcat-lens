@@ -123,7 +123,12 @@ module.exports = class MainViewProvider {
 					copyLogText({ clipboard: vsc, text: event.data.text });
 					break;
 				case UI_MESSAGES.EXPORT:
-					await exportLogs({ workspace: vscode.workspace, window: vscode.window, logs: event.data.logs });
+					await exportLogs({
+						workspace: vscode.workspace,
+						window: vscode.window,
+						logs: event.data.logs,
+						stripAnsi: settings.stripAnsiOnExport(vscode.workspace),
+					});
 					break;
 				case UI_MESSAGES.APP_LAUNCH:
 					this.#service(this.#source(event)).launchApp(event.data.deviceId, event.data.packageName).catch(() => {});

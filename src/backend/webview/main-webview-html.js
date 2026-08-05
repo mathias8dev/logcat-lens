@@ -16,6 +16,19 @@ function renderMainWebviewHtml({ webview, extensionUri, nonce, vscode }) {
 			<link href="${uri('src/frontend/logcat/logview.css')}" rel="stylesheet">
 			<script nonce="${nonce}" src="${uri('src/frontend/logcat/ansi-renderer.js')}"></script>
 			<script nonce="${nonce}" src="${uri('src/frontend/logcat/log-filter-model.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/message/media-sniffer.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/message/binary-segments.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/message/message-formatting.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/detail/media-continuations.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/detail/json-detail.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/detail/log-detail-pane.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/logview-template.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/controls/chrome-controls.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/controls/package-controls.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/controls/tag-controls.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/viewport/log-viewport.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/search/search-controls.js')}"></script>
+			<script nonce="${nonce}" src="${uri('src/frontend/logcat/ingestion/log-ingestion.js')}"></script>
 			<script nonce="${nonce}" src="${uri('src/frontend/logcat/logview.js')}"></script>
 		</head>
 

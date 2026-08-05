@@ -45,6 +45,13 @@ test('merges legacy and new tag groups with new values taking priority', () => {
 	});
 });
 
+test('strips ansi on export by default and reads configured override', () => {
+	assert.equal(settings.stripAnsiOnExport(workspace()), true);
+	assert.equal(settings.stripAnsiOnExport(workspace({
+		logviewUniversal: { stripAnsiOnExport: false },
+	})), false);
+});
+
 test('deletes tag groups from new and legacy sections', async () => {
 	const ws = workspace({
 		logcatLens: { tagGroups: { api: ['legacy'], db: ['db'] } },
