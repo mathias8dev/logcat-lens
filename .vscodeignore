@@ -11,6 +11,7 @@ vsc-extension-quickstart.md
 .local/**
 .git/**
 tests/**
+test/**
 webview-debug.log
 res/logcat-lens-screenshot.png
 docs/PERFORMANCE.md
