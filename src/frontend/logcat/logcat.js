@@ -697,7 +697,7 @@ class Logcat extends HTMLElementBase {
 	// CLIENT-SIDE FILTERING
 	// ========================
 	LEVEL_ORDER = ['V', 'D', 'I', 'W', 'E', 'F', 'L'];
-	LEVEL_NAMES = { V: 'Verbose', D: 'Debug', I: 'Info', W: 'Warning', E: 'Error', F: 'Fatal', L: 'Logcat Lens' };
+	LEVEL_NAMES = { V: 'Verbose', D: 'Debug', I: 'Info', W: 'Warning', E: 'Error', F: 'Fatal', L: 'Logcat Universal' };
 
 	toggleLevel(level) {
 		if (this.selectedLevels.has(level)) {
@@ -1679,7 +1679,7 @@ class Logcat extends HTMLElementBase {
 			pid: '',
 			tid: '',
 			priority: 'L',
-			tag: 'Logcat Lens',
+			tag: 'Logcat Universal',
 			message: label,
 			pkg: data.pkg,
 			_lifecycle: data.event,
@@ -2250,7 +2250,7 @@ class Logcat extends HTMLElementBase {
 						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'${UI_MESSAGES.OPEN_ADB_SETTINGS}'})">Set Path</button>
 						<button class="adb-btn" onclick="${this.handle}.setLogSource('ios')">Use iOS</button>
 					</div>
-					<p class="adb-missing-hint">Already installed? Set the path in Settings &gt; Logcat Lens &gt; Adb Path</p>
+					<p class="adb-missing-hint">Already installed? Set the path in Settings &gt; Logcat Universal &gt; Adb Path</p>
 				</div>
 			</div>
 
@@ -2352,4 +2352,4 @@ class Logcat extends HTMLElementBase {
 	}
 }
 
-customElements.define('logcat-lens', Logcat);
+customElements.define('logcat-universal', Logcat);

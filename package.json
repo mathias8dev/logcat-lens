@@ -1,11 +1,11 @@
 {
-	"name": "logcat-lens",
-	"displayName": "Logcat Lens",
+	"name": "logcat-universal",
+	"displayName": "Logcat Universal",
 	"icon": "res/icon.png",
 	"description": "A powerful mobile and debug-session log viewer for VS Code — stream, filter, and search logs without leaving your editor.",
 	"version": "3.1.0",
-	"publisher": "AshishKumarD",
-	"author": "Ashish Kumar",
+	"publisher": "mathias8dev",
+	"license": "MIT",
 	"engines": {
 		"vscode": "^1.90.0"
 	},
@@ -30,14 +30,18 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/AshishKumarD/logcat-lens"
+		"url": "https://github.com/mathias8dev/logcat-universal"
+	},
+	"homepage": "https://github.com/mathias8dev/logcat-universal#readme",
+	"bugs": {
+		"url": "https://github.com/mathias8dev/logcat-universal/issues"
 	},
 	"galleryBanner": {
-		"color": "#1a1a2e",
+		"color": "#1e1e1e",
 		"theme": "dark"
 	},
 	"activationEvents": [
-		"onView:logcat-lens-main-view",
+		"onView:logcat-universal-main-view",
 		"onDebug"
 	],
 	"main": "./src/backend/extension.js",
@@ -45,26 +49,26 @@
 		"viewsContainers": {
 			"panel": [
 				{
-					"id": "logcat-lens-container",
-					"title": "Logcat Lens",
+					"id": "logcat-universal-container",
+					"title": "Logcat Universal",
 					"icon": ""
 				}
 			]
 		},
 		"views": {
-			"logcat-lens-container": [
+			"logcat-universal-container": [
 				{
-					"id": "logcat-lens-main-view",
+					"id": "logcat-universal-main-view",
 					"type": "webview",
 					"name": "",
-					"contextualTitle": "Logcat Lens",
+					"contextualTitle": "Logcat Universal",
 					"visibility": "visible",
 					"icon": ""
 				}
 			]
 		},
 		"configuration": {
-			"title": "Logcat Lens",
+			"title": "Logcat Universal",
 			"properties": {
 				"logcatLens.adbPath": {
 					"type": "string",
@@ -82,8 +86,9 @@
 	"scripts": {
 		"lint": "eslint .",
 		"test": "node --test",
-		"package": "vsce package",
-		"package:pre-release": "vsce package --pre-release"
+		"package": "npm run vsix -- release",
+		"package:pre-release": "npm run vsix -- experimental",
+		"vsix": "node scripts/package-vsix.js"
 	},
 	"devDependencies": {
 		"@types/vscode": "^1.90.0",

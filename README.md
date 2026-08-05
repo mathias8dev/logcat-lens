@@ -1,8 +1,8 @@
-# Logcat Lens
+# Logcat Universal
 
 A powerful mobile and debug-session log viewer for VS Code — stream, filter, and search logs without leaving your editor.
 
-![Logcat Lens](res/screenshots/main.png)
+![Logcat Universal](res/screenshots/main.png)
 
 ## Features
 
@@ -37,14 +37,14 @@ The viewer is fully app-agnostic — there is no special tag, prefix, or marker 
 Log.d("HTTP", Base64.encode(imageBytes).decodeToString())
 ```
 
-…Logcat Lens will recognise the bytes by their magic header and show the preview.
+…Logcat Universal will recognise the bytes by their magic header and show the preview.
 
 **Limitations** (these are device-side, not viewer-side):
 
-- Android's `Log.d` truncates a single record at ~4 KB. For media bodies larger than that, the app must split the base64 into ~3.5 KB chunks before logging — Logcat Lens reassembles the chunks automatically. A single oversized `Log.d` call loses its tail on the device.
+- Android's `Log.d` truncates a single record at ~4 KB. For media bodies larger than that, the app must split the base64 into ~3.5 KB chunks before logging — Logcat Universal reassembles the chunks automatically. A single oversized `Log.d` call loses its tail on the device.
 - Under heavy concurrent volume (e.g. an asset gallery downloading 100+ images at once) Android's logd can drop records from its ring buffer. Gaps in the base64 will produce a broken-image render.
 - HTTP logging interceptors that read the body as a UTF-8 string (`readUtf8()` / `bodyAsString()`) corrupt binary bytes *before* they reach `Log.d` — no viewer can recover that. For media, capture the raw bytes via `peekBody`/an OkHttp interceptor and log them as base64.
-- For serious HTTP body inspection, pair Logcat Lens with an in-app inspector like Chucker or Axer. Logcat Lens is best for *seeing* media inline with the rest of your logs, not as a replacement for a dedicated HTTP inspector.
+- For serious HTTP body inspection, pair Logcat Universal with an in-app inspector like Chucker or Axer. Logcat Universal is best for *seeing* media inline with the rest of your logs, not as a replacement for a dedicated HTTP inspector.
 
 ## Requirements
 
@@ -55,15 +55,15 @@ Log.d("HTTP", Base64.encode(imageBytes).decodeToString())
 
 ### ADB Not Found?
 
-If ADB is not installed, Logcat Lens will prompt you to install it with a single click — no Android Studio needed.
+If ADB is not installed, Logcat Universal will prompt you to install it with a single click — no Android Studio needed.
 
 ![ADB Install](res/screenshots/adb-install.png)
 
-You can also set a custom ADB path in **Settings > Logcat Lens > Adb Path**.
+You can also set a custom ADB path in **Settings > Logcat Universal > Adb Path**.
 
 ## Usage
 
-1. Open the **Logcat Lens** tab in the bottom panel
+1. Open the **Logcat Universal** tab in the bottom panel
 2. Select **Android**, **iOS**, or **Debug**, then select a device/session and click play to start streaming
 3. Filter by level, tag, package, iOS bundle, or debug session using the filter bar
 4. Use sidebar buttons to pause, clear, wrap, or export
@@ -72,6 +72,10 @@ You can also set a custom ADB path in **Settings > Logcat Lens > Adb Path**.
 
 ## Contributing
 
-Found a bug or have a feature request? [Open an issue](https://github.com/AshishKumarD/logcat-lens/issues).
+Found a bug or have a feature request? [Open an issue](https://github.com/mathias8dev/logcat-universal/issues).
 
-Want to contribute? [Submit a pull request](https://github.com/AshishKumarD/logcat-lens/pulls) — all contributions are welcome!
+Want to contribute? [Submit a pull request](https://github.com/mathias8dev/logcat-universal/pulls) — all contributions are welcome!
+
+## License
+
+Logcat Universal is licensed under the [MIT License](LICENSE).

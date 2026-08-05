@@ -318,7 +318,7 @@ function collectCoreDevices(value, out = []) {
 }
 
 async function withJsonOutput(run) {
-	const dir = await mkdtemp(join(tmpdir(), 'logcat-lens-ios-'));
+	const dir = await mkdtemp(join(tmpdir(), 'logcat-universal-ios-'));
 	const file = join(dir, 'output.json');
 	try {
 		await run(file);

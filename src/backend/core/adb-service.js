@@ -81,7 +81,7 @@ async function downloadAndInstallAdb() {
 
 	return vscode.window.withProgress({
 		location: vscode.ProgressLocation.Notification,
-		title: 'Logcat Lens: Installing ADB',
+		title: 'Logcat Universal: Installing ADB',
 		cancellable: false,
 	}, async (progress) => {
 		progress.report({ message: 'Downloading platform-tools...' });

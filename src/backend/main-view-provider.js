@@ -305,7 +305,7 @@ module.exports = class MainViewProvider {
 			</head>
 
 			<body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-				<logcat-lens></logcat-lens>
+				<logcat-universal></logcat-universal>
 			</body>
 			</html>
 		`;
