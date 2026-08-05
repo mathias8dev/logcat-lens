@@ -5,6 +5,9 @@ const { basename, join } = require('path');
 const { tmpdir, platform } = require('os');
 const { fileURLToPath } = require('url');
 const EventEmitter = require('events');
+const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
+
+const IOS_SOURCE = SOURCES.IOS;
 
 function execFileAsync(file, args, opts = {}) {
 	return new Promise((resolve, reject) => {
@@ -395,7 +398,7 @@ class IOSService extends EventEmitter {
 					model: `${device.name} (${runtime.replace(/^com\.apple\.CoreSimulator\.SimRuntime\./, '').replace(/-/g, ' ')})`,
 					status: device.state === 'Booted' ? 'online' : 'offline',
 					raw: device,
-					platform: 'ios',
+					platform: IOS_SOURCE,
 					kind: 'simulator',
 				});
 			}
@@ -423,10 +426,10 @@ class IOSService extends EventEmitter {
 				id,
 				model: `${name}${osVersion ? ` (${osVersion})` : ''}`,
 				status: !paired ? 'unauthorized' : unavailable ? 'offline' : 'online',
-				raw: device,
-				platform: 'ios',
-				kind: 'device',
-			};
+					raw: device,
+					platform: IOS_SOURCE,
+					kind: 'device',
+				};
 		}).filter(device => device.id);
 	}
 
@@ -522,7 +525,7 @@ class IOSService extends EventEmitter {
 			jsonBuffer = drained.rest;
 			for (const event of drained.events) {
 				const log = this.#eventToLog(event, deviceId);
-				if (log) this.emit('iosevent', { type: 'ios.log', data: log });
+				if (log) this.emit('iosevent', { type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.LOG), data: log });
 			}
 		});
 
@@ -538,12 +541,12 @@ class IOSService extends EventEmitter {
 			this.logProcess = null;
 			if (code && !signal && !this._stopping) {
 				this.emit('iosevent', {
-					type: 'ios.error',
+					type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.ERROR),
 					data: stderrBuffer.trim() || `iOS log process exited with code ${code}`,
 				});
 				return;
 			}
-			this.emit('iosevent', { type: 'ios.closed', data: code });
+			this.emit('iosevent', { type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.CLOSED), data: code });
 		});
 	}
 
@@ -559,7 +562,7 @@ class IOSService extends EventEmitter {
 			for (const line of lines) {
 				const log = parseLine(line.trim());
 				if (!log) continue;
-				this.emit('iosevent', { type: 'ios.log', data: log });
+				this.emit('iosevent', { type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.LOG), data: log });
 			}
 		});
 
@@ -575,12 +578,12 @@ class IOSService extends EventEmitter {
 			this.logProcess = null;
 			if (code && !signal && !this._stopping) {
 				this.emit('iosevent', {
-					type: 'ios.error',
+					type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.ERROR),
 					data: stderrBuffer.trim() || `iOS log process exited with code ${code}`,
 				});
 				return;
 			}
-			this.emit('iosevent', { type: 'ios.closed', data: code });
+			this.emit('iosevent', { type: sourceEventType(IOS_SOURCE, SOURCE_EVENT_KINDS.CLOSED), data: code });
 		});
 	}
 
@@ -651,7 +654,7 @@ class IOSService extends EventEmitter {
 			tag: [subsystem, category].filter(Boolean).join(':') || processName || 'iOS',
 			message,
 			pkg: bundleId || subsystem || processName || '',
-			platform: 'ios',
+			platform: IOS_SOURCE,
 		};
 	}
 
@@ -689,7 +692,7 @@ class IOSService extends EventEmitter {
 				tag: processName,
 				message: syslogMatch[4],
 				pkg: bundleId || processName,
-				platform: 'ios',
+				platform: IOS_SOURCE,
 			};
 		}
 
@@ -701,7 +704,7 @@ class IOSService extends EventEmitter {
 			tag: 'iOS',
 			message: line,
 			pkg: '',
-			platform: 'ios',
+			platform: IOS_SOURCE,
 		};
 	}
 

@@ -6,13 +6,23 @@ const AdbService = require('./core/adb-service');
 const IOSService = require('./core/ios-service');
 const DebugSessionService = require('./core/debug-session-service');
 const { isAdbAvailable, downloadAndInstallAdb, resetAdbCache } = require('./core/adb-service');
+const {
+	DEFAULT_SOURCE,
+	SOURCES,
+	SOURCE_EVENT_KINDS,
+	UI_MESSAGES,
+	VIEW_MESSAGES,
+	normalizeSource,
+	sourceEvent,
+} = require('../shared/contracts');
 
 module.exports = class MainViewProvider {
 	#view;
 	#extensionURI;
 	#paused = false;
-	#activeSource = 'android';
+	#activeSource = DEFAULT_SOURCE;
 	#androidTrackingStarted = false;
+	#services = new Map();
 	adb;
 	ios;
 	debug;
@@ -22,6 +32,9 @@ module.exports = class MainViewProvider {
 		this.adb = new AdbService();
 		this.ios = new IOSService();
 		this.debug = new DebugSessionService(context);
+		this.#services.set(SOURCES.ANDROID, this.adb);
+		this.#services.set(SOURCES.IOS, this.ios);
+		this.#services.set(SOURCES.DEBUG, this.debug);
 		this.adb.on('adbevent', (event) => this.#onMessage(event));
 		this.ios.on('iosevent', (event) => this.#onMessage(event));
 		this.debug.on('debugevent', (event) => this.#onMessage(event));
@@ -36,19 +49,18 @@ module.exports = class MainViewProvider {
 	}
 
 	#service(source = this.#activeSource) {
-		if (source === 'ios') return this.ios;
-		if (source === 'debug') return this.debug;
-		return this.adb;
+		return this.#services.get(normalizeSource(source)) || this.adb;
 	}
 
 	#source(event) {
-		return event?.data?.source || this.#activeSource || 'android';
+		return normalizeSource(event?.data?.source || this.#activeSource);
 	}
 
 	#stopInactiveServices(source) {
-		if (source !== 'android') this.adb.stop();
-		if (source !== 'ios') this.ios.stop();
-		if (source !== 'debug') this.debug.stop();
+		const activeSource = normalizeSource(source);
+		for (const [candidate, service] of this.#services.entries()) {
+			if (candidate !== activeSource) service.stop();
+		}
 	}
 
 	#ensureAndroidTracking() {
@@ -60,9 +72,15 @@ module.exports = class MainViewProvider {
 	// MESSAGING
 	async #onMessage(event) {
 		try {
+			const sourceEventInfo = sourceEvent(event.type);
+			if (sourceEventInfo) {
+				await this.#onSourceEvent(sourceEventInfo, event);
+				return;
+			}
+
 			switch (event.type) {
 				// UI EVENTS
-				case 'start': {
+				case UI_MESSAGES.START: {
 					const source = this.#source(event);
 					this.#activeSource = source;
 					this.#paused = false;
@@ -70,20 +88,20 @@ module.exports = class MainViewProvider {
 					await this.#service(source).start(event.data);
 					break;
 				}
-				case 'stop':
+				case UI_MESSAGES.STOP:
 					this.#service(this.#source(event)).stop();
 					this.#paused = false;
 					break;
-				case 'pause':
+				case UI_MESSAGES.PAUSE:
 					this.#paused = true;
 					break;
-				case 'resume':
+				case UI_MESSAGES.RESUME:
 					this.#paused = false;
 					break;
-				case 'clear':
+				case UI_MESSAGES.CLEAR:
 					this.#service(this.#source(event)).clear();
 					break;
-				case 'restart': {
+				case UI_MESSAGES.RESTART: {
 					const source = this.#source(event);
 					this.#activeSource = source;
 					this.#paused = false;
@@ -91,24 +109,24 @@ module.exports = class MainViewProvider {
 					await this.#service(source).restart(event.data);
 					break;
 				}
-				case 'update-packages':
+				case UI_MESSAGES.UPDATE_PACKAGES:
 					this.#service(this.#source(event)).updatePackages(event.data.packages);
 					break;
-				case 'copy':
+				case UI_MESSAGES.COPY:
 					vsc.copyToClipboard(event.data.text);
 					break;
-				case 'export': {
+				case UI_MESSAGES.EXPORT: {
 					const doc = await vscode.workspace.openTextDocument({ content: event.data.logs, language: 'log' });
 					await vscode.window.showTextDocument(doc);
 					break;
 				}
-				case 'app-launch':
+				case UI_MESSAGES.APP_LAUNCH:
 					this.#service(this.#source(event)).launchApp(event.data.deviceId, event.data.packageName).catch(() => {});
 					break;
-				case 'app-force-stop':
+				case UI_MESSAGES.APP_FORCE_STOP:
 					this.#service(this.#source(event)).forceStopApp(event.data.deviceId, event.data.packageName).catch(() => {});
 					break;
-				case 'app-clear-data':
+				case UI_MESSAGES.APP_CLEAR_DATA:
 					this.#service(this.#source(event)).clearAppData(event.data.deviceId, event.data.packageName).catch(err => {
 						const detail = (err?.message || '').trim();
 						const isPermBlock = /permission|denied|not allowed|SecurityException|monitor/i.test(detail);
@@ -118,166 +136,126 @@ module.exports = class MainViewProvider {
 						vsc.showErrorPopup(msg);
 					});
 					break;
-				case 'devices': {
+				case UI_MESSAGES.DEVICES: {
 					const source = this.#source(event);
-					if (source === 'android' && isAdbAvailable()) this.#ensureAndroidTracking();
+					if (source === SOURCES.ANDROID && isAdbAvailable()) this.#ensureAndroidTracking();
 					this.#service(source).listDevices()
-						.then(devices => this.#postMessage({ type: 'devices', data: { source, devices } }))
+						.then(devices => this.#postMessage({ type: VIEW_MESSAGES.DEVICES, data: { source, devices } }))
 						.catch(err => {
-							if (source === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
-							this.#postMessage({ type: 'devices', data: { source, devices: [] } });
+							if (source === SOURCES.ANDROID && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+							this.#postMessage({ type: VIEW_MESSAGES.DEVICES, data: { source, devices: [] } });
 							vsc.showErrorPopup(err.message || err);
 						});
 					break;
 				}
-				case 'packages': {
+				case UI_MESSAGES.PACKAGES: {
 					const source = this.#source(event);
 					this.#service(source).listPackages(event.data.deviceId)
-						.then(packages => this.#postMessage({ type: 'packages', data: { source, packages } }))
+						.then(packages => this.#postMessage({ type: VIEW_MESSAGES.PACKAGES, data: { source, packages } }))
 						.catch(err => vsc.showErrorPopup(err.message || err));
 					break;
 				}
-				case 'save-tag-group': {
+				case UI_MESSAGES.SAVE_TAG_GROUP: {
 					const config = vscode.workspace.getConfiguration('logcatLens');
 					const groups = { ...config.get('tagGroups', {}) };
 					groups[event.data.name] = event.data.tags;
 					await config.update('tagGroups', groups, vscode.ConfigurationTarget.Global);
-					this.#postMessage({ type: 'tag-groups', data: { groups } });
+					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
-				case 'load-tag-groups': {
+				case UI_MESSAGES.LOAD_TAG_GROUPS: {
 					const groups = vscode.workspace.getConfiguration('logcatLens').get('tagGroups', {});
-					this.#postMessage({ type: 'tag-groups', data: { groups } });
+					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
-				case 'delete-tag-group': {
+				case UI_MESSAGES.DELETE_TAG_GROUP: {
 					const cfg = vscode.workspace.getConfiguration('logcatLens');
 					const grps = { ...cfg.get('tagGroups', {}) };
 					delete grps[event.data.name];
 					await cfg.update('tagGroups', grps, vscode.ConfigurationTarget.Global);
-					this.#postMessage({ type: 'tag-groups', data: { groups: grps } });
+					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups: grps } });
 					break;
 				}
-				case 'package-info': {
+				case UI_MESSAGES.PACKAGE_INFO: {
 					const source = this.#source(event);
 					this.#service(source).getPackageInfo(event.data.deviceId, event.data.packageName)
-						.then(info => this.#postMessage({ type: 'package-info', data: { source, ...info } }))
+						.then(info => this.#postMessage({ type: VIEW_MESSAGES.PACKAGE_INFO, data: { source, ...info } }))
 						.catch(() => {});
 					break;
 				}
-				case 'fetch-tags': {
+				case UI_MESSAGES.FETCH_TAGS: {
 					const source = this.#source(event);
 					this.#service(source).listTags(event.data.deviceId)
-						.then(tags => this.#postMessage({ type: 'tags', data: { source, tags } }))
+						.then(tags => this.#postMessage({ type: VIEW_MESSAGES.TAGS, data: { source, tags } }))
 						.catch(() => {});
 					break;
 				}
-				case 'check-adb': {
+				case UI_MESSAGES.CHECK_ADB: {
 					const available = isAdbAvailable();
 					if (available) this.#ensureAndroidTracking();
-					this.#postMessage({ type: 'adb-status', data: { available } });
+					this.#postMessage({ type: VIEW_MESSAGES.ADB_STATUS, data: { available } });
 					break;
 				}
-				case 'install-adb':
+				case UI_MESSAGES.INSTALL_ADB:
 					downloadAndInstallAdb().then(ok => {
-						this.#postMessage({ type: 'adb-status', data: { available: !!ok } });
+						this.#postMessage({ type: VIEW_MESSAGES.ADB_STATUS, data: { available: !!ok } });
 					});
 					break;
-				case 'open-adb-settings':
+				case UI_MESSAGES.OPEN_ADB_SETTINGS:
 					vscode.commands.executeCommand('workbench.action.openSettings', 'logcatLens.adbPath');
 					break;
-				case 'open-adb-download':
+				case UI_MESSAGES.OPEN_ADB_DOWNLOAD:
 					vscode.env.openExternal(vscode.Uri.parse('https://developer.android.com/tools/releases/platform-tools'));
-					break;
-
-				// ADB EVENTS
-				case 'adb.log':
-					if (this.#activeSource !== 'android') break;
-					if (!this.#paused) {
-						this.#postMessage({ type: 'log', data: { log: event.data } });
-					}
-					break;
-				case 'ios.log':
-					if (this.#activeSource !== 'ios') break;
-					if (!this.#paused) {
-						this.#postMessage({ type: 'log', data: { log: event.data } });
-					}
-					break;
-				case 'debug.log':
-					if (this.#activeSource !== 'debug') break;
-					if (!this.#paused) {
-						this.#postMessage({ type: 'log', data: { log: event.data } });
-					}
-					break;
-
-				case 'adb.package-changed':
-					if (this.#activeSource !== 'android') break;
-					this.#postMessage({ type: 'package-changed', data: event.data });
-					break;
-
-				case 'adb.lifecycle':
-					if (this.#activeSource !== 'android') break;
-					this.#postMessage({ type: 'lifecycle', data: event.data });
-					break;
-
-				case 'adb.devices-changed':
-					if (this.#activeSource !== 'android') break;
-					this.adb.listDevices()
-						.then(devices => this.#postMessage({ type: 'devices', data: { source: 'android', devices } }))
-						.catch(err => {
-							if (this.#isAdbMissingError(err)) this.#sendAdbMissing();
-						});
-					break;
-				case 'debug.devices-changed':
-					if (this.#activeSource !== 'debug') break;
-					this.debug.listDevices()
-						.then(devices => this.#postMessage({ type: 'devices', data: { source: 'debug', devices } }))
-						.catch(err => vsc.showErrorPopup(err.message || err));
-					break;
-
-				case 'adb.closed':
-					if (this.#activeSource !== 'android') break;
-					this.#postMessage({ type: 'stop' });
-					break;
-				case 'ios.closed':
-					if (this.#activeSource !== 'ios') break;
-					this.#postMessage({ type: 'stop' });
-					break;
-				case 'debug.closed':
-					if (this.#activeSource !== 'debug') break;
-					this.#postMessage({ type: 'stop' });
-					break;
-
-				case 'adb.error':
-					if (this.#activeSource !== 'android') break;
-					if (this.#isAdbMissingError(event.data)) return this.#sendAdbMissing();
-					vsc.showErrorPopup(event.data.toString());
-					this.#service().stop();
-					this.#postMessage({ type: 'stop' });
-					break;
-				case 'ios.error':
-					if (this.#activeSource !== 'ios') break;
-					vsc.showErrorPopup(event.data.toString());
-					this.#service().stop();
-					this.#postMessage({ type: 'stop' });
-					break;
-				case 'debug.error':
-					if (this.#activeSource !== 'debug') break;
-					vsc.showErrorPopup(event.data.toString());
-					this.#service().stop();
-					this.#postMessage({ type: 'stop' });
-					break;
-				case 'debug.warning':
-					if (this.#activeSource !== 'debug') break;
-					vsc.showWarningPopup(event.data.toString());
 					break;
 			}
 
 		} catch (err) {
-			if (this.#source(event) === 'android' && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
+			if (this.#source(event) === SOURCES.ANDROID && this.#isAdbMissingError(err)) return this.#sendAdbMissing();
 			vsc.showErrorPopup(err.message || err);
 			this.#service().stop();
-			this.#postMessage({ type: 'stop' });
+			this.#postMessage({ type: VIEW_MESSAGES.STOP });
+		}
+	}
+
+	async #onSourceEvent(eventInfo, event) {
+		const { source, kind } = eventInfo;
+		if (this.#activeSource !== source) return;
+
+		switch (kind) {
+			case SOURCE_EVENT_KINDS.LOG:
+				if (!this.#paused) this.#postMessage({ type: VIEW_MESSAGES.LOG, data: { log: event.data } });
+				break;
+			case SOURCE_EVENT_KINDS.PACKAGE_CHANGED:
+				this.#postMessage({ type: VIEW_MESSAGES.PACKAGE_CHANGED, data: event.data });
+				break;
+			case SOURCE_EVENT_KINDS.LIFECYCLE:
+				this.#postMessage({ type: VIEW_MESSAGES.LIFECYCLE, data: event.data });
+				break;
+			case SOURCE_EVENT_KINDS.DEVICES_CHANGED:
+				await this.#refreshDevicesForSource(source);
+				break;
+			case SOURCE_EVENT_KINDS.CLOSED:
+				this.#postMessage({ type: VIEW_MESSAGES.STOP });
+				break;
+			case SOURCE_EVENT_KINDS.ERROR:
+				if (source === SOURCES.ANDROID && this.#isAdbMissingError(event.data)) return this.#sendAdbMissing();
+				vsc.showErrorPopup(event.data.toString());
+				this.#service(source).stop();
+				this.#postMessage({ type: VIEW_MESSAGES.STOP });
+				break;
+			case SOURCE_EVENT_KINDS.WARNING:
+				vsc.showWarningPopup(event.data.toString());
+				break;
+		}
+	}
+
+	async #refreshDevicesForSource(source) {
+		try {
+			const devices = await this.#service(source).listDevices();
+			this.#postMessage({ type: VIEW_MESSAGES.DEVICES, data: { source, devices } });
+		} catch (err) {
+			if (source === SOURCES.ANDROID && this.#isAdbMissingError(err)) this.#sendAdbMissing();
+			else vsc.showErrorPopup(err.message || err);
 		}
 	}
 
@@ -291,7 +269,7 @@ module.exports = class MainViewProvider {
 		this.adb.stop();
 		this.adb.stopDeviceTracking();
 		this.#androidTrackingStarted = false;
-		this.#postMessage({ type: 'adb-status', data: { available: false } });
+		this.#postMessage({ type: VIEW_MESSAGES.ADB_STATUS, data: { available: false } });
 	}
 
 	#postMessage(message) {
@@ -323,9 +301,11 @@ module.exports = class MainViewProvider {
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 				<link href="${uri('src/frontend/style.css')}" rel="stylesheet">
+				<script nonce="${nonce}" src="${uri('src/shared/contracts.js')}"></script>
 				<script nonce="${nonce}" src="${uri('src/frontend/core/html-element-base.js')}"></script>
 
 				<link href="${uri('src/frontend/logcat/logcat.css')}" rel="stylesheet">
+				<script nonce="${nonce}" src="${uri('src/frontend/logcat/ansi-renderer.js')}"></script>
 				<script nonce="${nonce}" src="${uri('src/frontend/logcat/logcat.js')}"></script>
 			</head>
 

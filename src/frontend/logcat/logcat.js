@@ -1,3 +1,11 @@
+const {
+	DEFAULT_SOURCE,
+	SOURCES,
+	SOURCE_VALUES,
+	UI_MESSAGES,
+	VIEW_MESSAGES,
+} = globalThis.LogcatLensContracts;
+
 class Logcat extends HTMLElementBase {
 	BUFFER_SIZE = 100000;    // Can be huge now — only JS array, not DOM
 	ROW_HEIGHT = 18;         // Fixed row height in px (line-height: 1.5 * 12px)
@@ -16,7 +24,7 @@ class Logcat extends HTMLElementBase {
 	isPlaying = false;
 	isPaused = false;
 	state = 'idle';
-	source = 'android';
+	source = DEFAULT_SOURCE;
 
 	availablePackages = [];
 	selectedPackages = [];
@@ -76,14 +84,14 @@ class Logcat extends HTMLElementBase {
 		this.renderLevelChips();
 		this.updateSourceLabels();
 		this.updateStatus();
-		this.postMessage({ type: 'load-tag-groups' });
+		this.postMessage({ type: UI_MESSAGES.LOAD_TAG_GROUPS });
 
 		// Check ADB before doing anything else
-		this.postMessage({ type: 'check-adb' });
+		this.postMessage({ type: UI_MESSAGES.CHECK_ADB });
 	}
 
 	_setAdbMissing(missing) {
-		const show = missing && this.source === 'android';
+		const show = missing && this.source === SOURCES.ANDROID;
 		this.querySelector('#adb-missing-overlay').style.display = show ? '' : 'none';
 		this.querySelector('sidebar').style.display = show ? 'none' : '';
 		this.querySelector('.content').style.display = show ? 'none' : '';
@@ -98,8 +106,8 @@ class Logcat extends HTMLElementBase {
 		event = event.data;
 
 		switch (event.type) {
-			case 'adb-status':
-				if (this.source !== 'android') return;
+			case VIEW_MESSAGES.ADB_STATUS:
+				if (this.source !== SOURCES.ANDROID) return;
 				if (event.data.available) {
 					this._setAdbMissing(false);
 					this.refreshDevices();
@@ -107,39 +115,39 @@ class Logcat extends HTMLElementBase {
 					this._setAdbMissing(true);
 				}
 				break;
-			case 'devices':
+			case VIEW_MESSAGES.DEVICES:
 				if (event.data.source && event.data.source !== this.source) return;
 				this.toggleLoading(false);
 				this.setDevices(event.data.devices);
 				break;
-			case 'packages':
+			case VIEW_MESSAGES.PACKAGES:
 				if (event.data.source && event.data.source !== this.source) return;
 				this.availablePackages = event.data.packages;
 				if (document.activeElement === this.packageInput && this.packageInput.value) {
 					this.showPackageDropdown(this.packageInput.value);
 				}
 				break;
-			case 'tags':
+			case VIEW_MESSAGES.TAGS:
 				if (event.data.source && event.data.source !== this.source) return;
 				event.data.tags.forEach(t => this.knownTags.add(t));
 				break;
-			case 'tag-groups':
+			case VIEW_MESSAGES.TAG_GROUPS:
 				this.tagGroups = event.data.groups || {};
 				break;
-			case 'log':
+			case VIEW_MESSAGES.LOG:
 				if (!this.isPaused) this.queueLogEntry(event.data.log);
 				break;
-			case 'package-changed':
+			case VIEW_MESSAGES.PACKAGE_CHANGED:
 				this._showPackageEvent(event.data.message);
 				break;
-			case 'lifecycle':
+			case VIEW_MESSAGES.LIFECYCLE:
 				this._showLifecycleEvent(event.data);
 				break;
-			case 'package-info':
+			case VIEW_MESSAGES.PACKAGE_INFO:
 				if (event.data.source && event.data.source !== this.source) return;
 				this._showPackageInfo(event.data);
 				break;
-			case 'stop':
+			case VIEW_MESSAGES.STOP:
 				this.isPlaying = false;
 				this.isPaused = false;
 				this.state = 'idle';
@@ -150,8 +158,8 @@ class Logcat extends HTMLElementBase {
 	}
 
 	setLogSource(source) {
-		if (!['android', 'ios', 'debug'].includes(source) || source === this.source) return;
-		if (this.isPlaying) this.postMessage({ type: 'stop', data: { source: this.source } });
+		if (!SOURCE_VALUES.includes(source) || source === this.source) return;
+		if (this.isPlaying) this.postMessage({ type: UI_MESSAGES.STOP, data: { source: this.source } });
 
 		this.source = source;
 		this.logSourceSelect.value = source;
@@ -172,13 +180,13 @@ class Logcat extends HTMLElementBase {
 		this.updateSourceLabels();
 		this._setAdbMissing(false);
 
-		if (source === 'android') this.postMessage({ type: 'check-adb' });
+		if (source === SOURCES.ANDROID) this.postMessage({ type: UI_MESSAGES.CHECK_ADB });
 		else this.refreshDevices();
 	}
 
 	updateSourceLabels() {
-		const isIOS = this.source === 'ios';
-		const isDebug = this.source === 'debug';
+		const isIOS = this.source === SOURCES.IOS;
+		const isDebug = this.source === SOURCES.DEBUG;
 		this.packageInput.placeholder = isDebug ? 'Package or session' : isIOS ? 'Bundle ID' : 'Package';
 		this.deviceSelect.setAttribute('aria-label', isDebug ? 'Debug session' : isIOS ? 'iOS device' : 'Android device');
 		if (this.pkgColumnTitle) this.pkgColumnTitle.textContent = isDebug ? 'Source' : isIOS ? 'Bundle' : 'Package';
@@ -190,7 +198,7 @@ class Logcat extends HTMLElementBase {
 		if (this.isPaused) { this.resume(); return; }
 
 		this.postMessage({
-			type: 'start',
+			type: UI_MESSAGES.START,
 			data: {
 				source: this.source,
 				deviceId: this.deviceSelect.value,
@@ -212,7 +220,7 @@ class Logcat extends HTMLElementBase {
 		if (!this.isPlaying || this.isPaused) return;
 		this.isPaused = true;
 		this.state = 'paused';
-		this.postMessage({ type: 'pause' });
+		this.postMessage({ type: UI_MESSAGES.PAUSE });
 		this.updatePlayButton();
 		this.updateStatus();
 	}
@@ -221,14 +229,14 @@ class Logcat extends HTMLElementBase {
 		if (!this.isPaused) return;
 		this.isPaused = false;
 		this.state = 'streaming';
-		this.postMessage({ type: 'resume' });
+		this.postMessage({ type: UI_MESSAGES.RESUME });
 		this.updatePlayButton();
 		this.updateStatus();
 	}
 
 	stop() {
 		if (!this.isPlaying) return;
-		this.postMessage({ type: 'stop', data: { source: this.source } });
+		this.postMessage({ type: UI_MESSAGES.STOP, data: { source: this.source } });
 		this.isPlaying = false;
 		this.isPaused = false;
 		this.state = 'idle';
@@ -239,7 +247,7 @@ class Logcat extends HTMLElementBase {
 	restart() {
 		this.clear();
 		this.postMessage({
-			type: 'restart',
+			type: UI_MESSAGES.RESTART,
 			data: {
 				source: this.source,
 				deviceId: this.deviceSelect.value,
@@ -282,7 +290,7 @@ class Logcat extends HTMLElementBase {
 			this.updateVirtualHeight();
 		}
 
-		if (remote) this.postMessage({ type: 'clear', data: { source: this.source } });
+		if (remote) this.postMessage({ type: UI_MESSAGES.CLEAR, data: { source: this.source } });
 	}
 
 	// ========================
@@ -400,32 +408,10 @@ class Logcat extends HTMLElementBase {
 	}
 
 	_formatAnsiText(text) {
-		const raw = String(text ?? '');
-		if (!/[\u001b\u009b]/.test(raw)) return this._linkifyEscapedText(this.escapeHtml(raw));
-
-		const ansiPattern = /(?:\u001b\[|\u009b)([0-9;]*)m|(?:\u001b\[|\u009b)[0-?]*[ -/]*[@-~]/g;
-		const style = {};
-		let out = '';
-		let pos = 0;
-		let match;
-
-		while ((match = ansiPattern.exec(raw)) !== null) {
-			if (match.index > pos) {
-				out += this._styledAnsiChunk(raw.slice(pos, match.index), style);
-			}
-			if (match[1] !== undefined) this._applyAnsiCodes(match[1], style);
-			pos = ansiPattern.lastIndex;
-		}
-
-		if (pos < raw.length) out += this._styledAnsiChunk(raw.slice(pos), style);
-		return out;
-	}
-
-	_styledAnsiChunk(text, style) {
-		if (!text) return '';
-		const html = this._linkifyEscapedText(this.escapeHtml(text));
-		const css = this._ansiStyleToCss(style);
-		return css ? `<span class="log-ansi" style="${css}">${html}</span>` : html;
+		return globalThis.LogcatLensAnsiRenderer.formatAnsiText(text, {
+			escapeHtml: (value) => this.escapeHtml(value),
+			linkifyEscapedText: (html) => this._linkifyEscapedText(html),
+		});
 	}
 
 	_linkifyEscapedText(html) {
@@ -433,84 +419,6 @@ class Logcat extends HTMLElementBase {
 			/\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]}]/g,
 			(url) => `<a href="${url}" class="log-link" target="_blank" rel="noopener">${url}</a>`
 		);
-	}
-
-	_applyAnsiCodes(params, style) {
-		const codes = params === '' ? [0] : params.split(';').map(v => Number(v || 0));
-		for (let i = 0; i < codes.length; i++) {
-			const code = codes[i];
-			if (code === 0) {
-				for (const key of Object.keys(style)) delete style[key];
-			} else if (code === 1) {
-				style.bold = true;
-			} else if (code === 2) {
-				style.dim = true;
-			} else if (code === 3) {
-				style.italic = true;
-			} else if (code === 4) {
-				style.underline = true;
-			} else if (code === 22) {
-				delete style.bold;
-				delete style.dim;
-			} else if (code === 23) {
-				delete style.italic;
-			} else if (code === 24) {
-				delete style.underline;
-			} else if (code === 39) {
-				delete style.fg;
-			} else if (code === 49) {
-				delete style.bg;
-			} else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
-				style.fg = this._ansiBasicColor(code, false);
-			} else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
-				style.bg = this._ansiBasicColor(code, true);
-			} else if ((code === 38 || code === 48) && codes[i + 1] === 5 && Number.isFinite(codes[i + 2])) {
-				style[code === 38 ? 'fg' : 'bg'] = this._ansi256Color(codes[i + 2]);
-				i += 2;
-			} else if ((code === 38 || code === 48) && codes[i + 1] === 2) {
-				const r = codes[i + 2], g = codes[i + 3], b = codes[i + 4];
-				if ([r, g, b].every(v => Number.isFinite(v) && v >= 0 && v <= 255)) {
-					style[code === 38 ? 'fg' : 'bg'] = `rgb(${r}, ${g}, ${b})`;
-				}
-				i += 4;
-			}
-		}
-	}
-
-	_ansiStyleToCss(style) {
-		const css = [];
-		if (style.fg) css.push(`color:${style.fg}`);
-		if (style.bg) css.push(`background-color:${style.bg}`);
-		if (style.bold) css.push('font-weight:700');
-		if (style.dim) css.push('opacity:.7');
-		if (style.italic) css.push('font-style:italic');
-		if (style.underline) css.push('text-decoration:underline');
-		return css.join(';');
-	}
-
-	_ansiBasicColor(code, background) {
-		const base = background ? (code >= 100 ? code - 100 + 8 : code - 40) : (code >= 90 ? code - 90 + 8 : code - 30);
-		return [
-			'#000000', '#cd3131', '#0dbc79', '#e5e510',
-			'#2472c8', '#bc3fbc', '#11a8cd', '#e5e5e5',
-			'#666666', '#f14c4c', '#23d18b', '#f5f543',
-			'#3b8eea', '#d670d6', '#29b8db', '#ffffff',
-		][base] || '';
-	}
-
-	_ansi256Color(value) {
-		const n = Math.max(0, Math.min(255, Number(value) || 0));
-		if (n < 16) return this._ansiBasicColor(n < 8 ? n + 30 : n + 82, false);
-		if (n >= 232) {
-			const level = 8 + (n - 232) * 10;
-			return `rgb(${level}, ${level}, ${level})`;
-		}
-		const idx = n - 16;
-		const r = Math.floor(idx / 36);
-		const g = Math.floor((idx % 36) / 6);
-		const b = idx % 6;
-		const conv = v => v === 0 ? 0 : 55 + v * 40;
-		return `rgb(${conv(r)}, ${conv(g)}, ${conv(b)})`;
 	}
 
 	// Find embedded binary blobs (data URIs, base64, hex) whose decoded magic
@@ -817,7 +725,7 @@ class Logcat extends HTMLElementBase {
 	queueLogEntry(log) {
 		log.text = `${log.timestamp} ${log.pkg || ''} ${log.tag} ${log.message}`.toLowerCase();
 		if (log.tag) this.knownTags.add(log.tag.trim());
-		if (this.source === 'debug' && log.platform === 'debug' && log.pkg && !this.availablePackages.includes(log.pkg)) {
+		if (this.source === SOURCES.DEBUG && log.platform === SOURCES.DEBUG && log.pkg && !this.availablePackages.includes(log.pkg)) {
 			this.availablePackages.push(log.pkg);
 			this.availablePackages.sort();
 			if (document.activeElement === this.packageInput) this.showPackageDropdown(this.packageInput.value);
@@ -1013,7 +921,7 @@ class Logcat extends HTMLElementBase {
 	// ========================
 	refreshDevices() {
 		this.toggleLoading(true);
-		this.postMessage({ type: 'devices', data: { source: this.source } });
+		this.postMessage({ type: UI_MESSAGES.DEVICES, data: { source: this.source } });
 	}
 
 	setDevices(devices) {
@@ -1026,7 +934,7 @@ class Logcat extends HTMLElementBase {
 				const label = `${d.model}${status}`;
 				return `<option value="${this.escapeAttr(d.id)}"${kind}${disabled} title="${this.escapeAttr(label)}">${this.escapeHtml(label)}</option>`;
 			}).join('')
-			: `<option value="">No ${this.source === 'debug' ? 'debug sessions' : this.source === 'ios' ? 'iOS devices' : 'Android devices'} found</option>`;
+			: `<option value="">No ${this.source === SOURCES.DEBUG ? 'debug sessions' : this.source === SOURCES.IOS ? 'iOS devices' : 'Android devices'} found</option>`;
 		// Restore previous selection if still available
 		if (prevValue && [...this.deviceSelect.options].some(o => o.value === prevValue && !o.disabled)) {
 			this.deviceSelect.value = prevValue;
@@ -1073,7 +981,7 @@ class Logcat extends HTMLElementBase {
 
 		copyBtn.addEventListener('click', () => {
 			if (!this._activeDetailText) return;
-			this.postMessage({ type: 'copy', data: { text: this._activeDetailText } });
+			this.postMessage({ type: UI_MESSAGES.COPY, data: { text: this._activeDetailText } });
 		});
 
 		// Resize drag (vertical)
@@ -1537,12 +1445,12 @@ class Logcat extends HTMLElementBase {
 	// ========================
 	fetchPackages() {
 		const deviceId = this.deviceSelect.value;
-		if (deviceId) this.postMessage({ type: 'packages', data: { source: this.source, deviceId } });
+		if (deviceId) this.postMessage({ type: UI_MESSAGES.PACKAGES, data: { source: this.source, deviceId } });
 	}
 
 	fetchTags() {
 		const deviceId = this.deviceSelect.value;
-		if (deviceId) this.postMessage({ type: 'fetch-tags', data: { source: this.source, deviceId } });
+		if (deviceId) this.postMessage({ type: UI_MESSAGES.FETCH_TAGS, data: { source: this.source, deviceId } });
 	}
 
 	initPackageAutocomplete() {
@@ -1622,7 +1530,7 @@ class Logcat extends HTMLElementBase {
 			this._notifyPackagesChanged();
 			// Fetch version info
 			const deviceId = this.deviceSelect.value;
-			if (deviceId) this.postMessage({ type: 'package-info', data: { source: this.source, deviceId, packageName: pkg } });
+			if (deviceId) this.postMessage({ type: UI_MESSAGES.PACKAGE_INFO, data: { source: this.source, deviceId, packageName: pkg } });
 		}
 		this.packageInput.value = '';
 		this.hidePackageDropdown();
@@ -1631,7 +1539,7 @@ class Logcat extends HTMLElementBase {
 	_notifyPackagesChanged() {
 		// Push the current package list to the backend so lifecycle tracking
 		// updates live without needing a stop/start cycle.
-		this.postMessage({ type: 'update-packages', data: { source: this.source, packages: this.selectedPackages.slice() } });
+		this.postMessage({ type: UI_MESSAGES.UPDATE_PACKAGES, data: { source: this.source, packages: this.selectedPackages.slice() } });
 	}
 
 	renderPackages() {
@@ -1669,7 +1577,7 @@ class Logcat extends HTMLElementBase {
 		this.fetchPackages();
 		// Re-fetch info for selected packages
 		this.selectedPackages.forEach(pkg => {
-			this.postMessage({ type: 'package-info', data: { source: this.source, deviceId: this.deviceSelect.value, packageName: pkg } });
+			this.postMessage({ type: UI_MESSAGES.PACKAGE_INFO, data: { source: this.source, deviceId: this.deviceSelect.value, packageName: pkg } });
 		});
 	}
 
@@ -1733,7 +1641,13 @@ class Logcat extends HTMLElementBase {
 		if (this.selectedPackages.length !== 1) return;
 		const deviceId = this.deviceSelect.value;
 		const packageName = this.selectedPackages[0];
-		this.postMessage({ type: `app-${action}`, data: { source: this.source, deviceId, packageName } });
+		const messageType = {
+			launch: UI_MESSAGES.APP_LAUNCH,
+			'force-stop': UI_MESSAGES.APP_FORCE_STOP,
+			'clear-data': UI_MESSAGES.APP_CLEAR_DATA,
+		}[action];
+		if (!messageType) return;
+		this.postMessage({ type: messageType, data: { source: this.source, deviceId, packageName } });
 	}
 
 	_showPackageInfo(info) {
@@ -1929,7 +1843,7 @@ class Logcat extends HTMLElementBase {
 		const input = this.querySelector('#tag-group-name-input');
 		const name = input?.value?.trim();
 		if (!name || !this.tags.length) return;
-		this.postMessage({ type: 'save-tag-group', data: { name, tags: [...this.tags] } });
+		this.postMessage({ type: UI_MESSAGES.SAVE_TAG_GROUP, data: { name, tags: [...this.tags] } });
 		this.activeTagGroup = name;
 		this.tagGroupExpanded = false;
 		this.renderTags();
@@ -1947,7 +1861,7 @@ class Logcat extends HTMLElementBase {
 	}
 
 	deleteTagGroup(name) {
-		this.postMessage({ type: 'delete-tag-group', data: { name } });
+		this.postMessage({ type: UI_MESSAGES.DELETE_TAG_GROUP, data: { name } });
 	}
 
 	// ========================
@@ -2252,7 +2166,7 @@ class Logcat extends HTMLElementBase {
 		window.getSelection()?.removeAllRanges();
 		const c = entry.children;
 		const text = `${c[0]?.textContent || ''} ${c[1]?.textContent || ''} ${c[2]?.textContent || ''} ${c[3]?.textContent || ''} ${c[4]?.textContent || ''} ${c[5]?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-		this.postMessage({ type: 'copy', data: { text } });
+		this.postMessage({ type: UI_MESSAGES.COPY, data: { text } });
 	}
 
 	exportLogs() {
@@ -2262,7 +2176,7 @@ class Logcat extends HTMLElementBase {
 			const log = this.getLogAtDisplayIndex(i);
 			lines.push(`${log.timestamp} ${log.pid || ''} ${log.tid || ''} ${log.priority} ${log.tag}: ${log.message}`);
 		}
-		this.postMessage({ type: 'export', data: { logs: lines.join('\n') } });
+		this.postMessage({ type: UI_MESSAGES.EXPORT, data: { logs: lines.join('\n') } });
 	}
 
 	// ========================
@@ -2282,9 +2196,9 @@ class Logcat extends HTMLElementBase {
 					<h3>ADB Not Found</h3>
 					<p>Android Debug Bridge (ADB) is required to stream device logs.</p>
 					<div class="adb-missing-actions">
-						<button id="adb-install-btn" class="adb-btn primary" onclick="${this.handle}.postMessage({type:'install-adb'});this.disabled=true;this.textContent='Installing...';">Install ADB</button>
-						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'open-adb-download'})">Download Page</button>
-						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'open-adb-settings'})">Set Path</button>
+						<button id="adb-install-btn" class="adb-btn primary" onclick="${this.handle}.postMessage({type:'${UI_MESSAGES.INSTALL_ADB}'});this.disabled=true;this.textContent='Installing...';">Install ADB</button>
+						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'${UI_MESSAGES.OPEN_ADB_DOWNLOAD}'})">Download Page</button>
+						<button class="adb-btn" onclick="${this.handle}.postMessage({type:'${UI_MESSAGES.OPEN_ADB_SETTINGS}'})">Set Path</button>
 						<button class="adb-btn" onclick="${this.handle}.setLogSource('ios')">Use iOS</button>
 					</div>
 					<p class="adb-missing-hint">Already installed? Set the path in Settings &gt; Logcat Lens &gt; Adb Path</p>

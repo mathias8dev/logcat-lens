@@ -5,6 +5,9 @@ const { join } = require('path');
 const https = require('https');
 const EventEmitter = require('events');
 const vscode = require('vscode');
+const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
+
+const ADB_SOURCE = SOURCES.ANDROID;
 
 function findAdb() {
 	// 1. User-configured path takes priority
@@ -212,7 +215,7 @@ class ADBService extends EventEmitter {
 		if (this._trackProcess) return;
 		this._trackProcess = this._spawn(['track-devices']);
 		this._trackProcess.stdout.on('data', () => {
-			this.emit('adbevent', { type: 'adb.devices-changed' });
+			this.emit('adbevent', { type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.DEVICES_CHANGED) });
 		});
 		this._trackProcess.on('close', () => {
 			this._trackProcess = null;
@@ -392,14 +395,15 @@ class ADBService extends EventEmitter {
 					priority: parts[4],
 					tag: parts[5],
 					message: parts[6],
-					pkg: this.pidMap?.[parts[2]] || ''
+					pkg: this.pidMap?.[parts[2]] || '',
+					platform: ADB_SOURCE,
 				});
 			}
 
 			// Emit each log individually for compatibility with the message protocol
 			for (let i = 0; i < batch.length; i++) {
 				this.emit('adbevent', {
-					type: 'adb.log',
+					type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.LOG),
 					data: batch[i]
 				});
 
@@ -410,7 +414,7 @@ class ADBService extends EventEmitter {
 					this.refreshPidMap(deviceId);
 					setTimeout(() => this.refreshPidMap(deviceId), 2000);
 					this.emit('adbevent', {
-						type: 'adb.package-changed',
+						type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.PACKAGE_CHANGED),
 						data: { message: batch[i].message, tag }
 					});
 				}
@@ -474,7 +478,7 @@ class ADBService extends EventEmitter {
 						}
 					}
 					if (lifecycle) {
-						this.emit('adbevent', { type: 'adb.lifecycle', data: lifecycle });
+						this.emit('adbevent', { type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.LIFECYCLE), data: lifecycle });
 					}
 				}
 			}
@@ -483,7 +487,7 @@ class ADBService extends EventEmitter {
 		this.logcatProcess.stderr.on('data', (data) => {
 			console.error(`adb stderr: ${data}`);
 			this.emit('adbevent', {
-				type: 'adb.error',
+				type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.ERROR),
 				data: data
 			});
 		});
@@ -491,7 +495,7 @@ class ADBService extends EventEmitter {
 		this.logcatProcess.on('close', (code) => {
 			console.log(`adb process exited with code ${code}`);
 			this.emit('adbevent', {
-				type: 'adb.closed',
+				type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.CLOSED),
 				data: code
 			});
 		});
@@ -524,7 +528,7 @@ class ADBService extends EventEmitter {
 				if (state.state !== this._lastAppState) {
 					this._lastAppState = state.state;
 					this.emit('adbevent', {
-						type: 'adb.lifecycle',
+						type: sourceEventType(ADB_SOURCE, SOURCE_EVENT_KINDS.LIFECYCLE),
 						data: { event: state.state, pkg, detail: `${state.state} (PID: ${state.pid || 'none'})` }
 					});
 				}

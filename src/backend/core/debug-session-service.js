@@ -1,11 +1,13 @@
 const vscode = require('vscode');
 const EventEmitter = require('events');
 const { cleanOutput, cleanTerminalOutput, formatTimestamp, mapPriority, parseDebugLogLine } = require('../parsers/debug-log-parser');
+const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
 
 const ACTIVE_SESSION_ID = '__active_debug_session__';
 const TERMINAL_CATEGORY = 'terminal';
 const BUFFERED_LOG_LIMIT = 5000;
 const DEBUG_TERMINAL_COMMAND_RE = /(^|[\s"'=/\\])(java|gradle|gradlew|mvn|mvnw|kotlin|kotlinc)([\s"'$]|$)/i;
+const DEBUG_SOURCE = SOURCES.DEBUG;
 
 class DebugSessionService extends EventEmitter {
 	#running = false;
@@ -66,7 +68,7 @@ class DebugSessionService extends EventEmitter {
 			model: currentLabel,
 			status: 'online',
 			raw: active ? this.#sessionInfo(active) : null,
-			platform: 'debug',
+			platform: DEBUG_SOURCE,
 			kind: 'debug-session',
 		}];
 
@@ -76,7 +78,7 @@ class DebugSessionService extends EventEmitter {
 				model: this.#sessionLabel(session),
 				status: 'online',
 				raw: this.#sessionInfo(session),
-				platform: 'debug',
+				platform: DEBUG_SOURCE,
 				kind: 'debug-session',
 			});
 		}
@@ -167,7 +169,7 @@ class DebugSessionService extends EventEmitter {
 			onDidSendMessage: (message) => this.#onDebugAdapterMessage(session, message),
 			onError: (error) => {
 				if (!this.#running || !this.#shouldEmit(session)) return;
-				this.emit('debugevent', { type: 'debug.error', data: error.message || String(error) });
+				this.emit('debugevent', { type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.ERROR), data: error.message || String(error) });
 			},
 			onExit: () => {
 				this.#handleSessionEnded(session);
@@ -197,7 +199,7 @@ class DebugSessionService extends EventEmitter {
 
 		this.#readTerminalExecution(session, event).catch(error => {
 			if (!this.#running || !this.#shouldEmit(session)) return;
-			this.emit('debugevent', { type: 'debug.error', data: error.message || String(error) });
+			this.emit('debugevent', { type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.ERROR), data: error.message || String(error) });
 		});
 	}
 
@@ -245,7 +247,7 @@ class DebugSessionService extends EventEmitter {
 
 		if (!this.#running || !this.#shouldEmit(session)) return;
 		this.emit('debugevent', {
-			type: 'debug.log',
+			type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.LOG),
 			data: log,
 		});
 	}
@@ -310,7 +312,7 @@ class DebugSessionService extends EventEmitter {
 			tag: parsedLog?.logger || category,
 			message: parsedLog?.message || message,
 			pkg: parsedLog?.pkg || session.name || session.type || session.id,
-			platform: 'debug',
+			platform: DEBUG_SOURCE,
 			sessionId: session.id,
 			sessionType: session.type,
 			debugCategory: category,
@@ -333,7 +335,7 @@ class DebugSessionService extends EventEmitter {
 		for (const session of this.#sessionsForCurrentTarget()) {
 			const buffer = this.#logBuffers.get(session.id) || [];
 			for (const log of buffer) {
-				this.emit('debugevent', { type: 'debug.log', data: log });
+				this.emit('debugevent', { type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.LOG), data: log });
 			}
 		}
 	}
@@ -385,7 +387,7 @@ class DebugSessionService extends EventEmitter {
 		if (!session?.id || !this.#usesIntegratedTerminal(session) || this.#warnedTerminalSessions.has(session.id)) return;
 		this.#warnedTerminalSessions.add(session.id);
 		this.emit('debugevent', {
-			type: 'debug.warning',
+			type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.WARNING),
 			data: 'This debug session writes to VS Code Terminal. VS Code does not expose that terminal output to extensions, so Logcat Lens can only capture it if the launch configuration uses "console": "internalConsole".',
 		});
 	}
@@ -398,7 +400,7 @@ class DebugSessionService extends EventEmitter {
 		if (removed && this.#running && isSelectedSession) {
 			this.#running = false;
 			this.#currentSessionId = '';
-			this.emit('debugevent', { type: 'debug.closed', data: 0 });
+			this.emit('debugevent', { type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.CLOSED), data: 0 });
 		}
 	}
 
@@ -417,7 +419,7 @@ class DebugSessionService extends EventEmitter {
 	}
 
 	#emitDevicesChanged() {
-		this.emit('debugevent', { type: 'debug.devices-changed' });
+		this.emit('debugevent', { type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.DEVICES_CHANGED) });
 	}
 }
 
