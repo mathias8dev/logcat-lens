@@ -3,7 +3,7 @@
 		module.exports = factory();
 		return;
 	}
-	root.LogcatLensAnsiRenderer = factory();
+	root.LogViewUniversalAnsiRenderer = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createAnsiRenderer() {
 	function formatAnsiText(text, options = {}) {
 		const escapeHtml = options.escapeHtml || defaultEscapeHtml;

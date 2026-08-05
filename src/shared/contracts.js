@@ -3,7 +3,7 @@
 		module.exports = factory();
 		return;
 	}
-	root.LogcatLensContracts = factory();
+	root.LogViewUniversalContracts = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createContracts() {
 	const SOURCES = Object.freeze({
 		ANDROID: 'android',

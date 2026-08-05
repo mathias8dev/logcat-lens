@@ -142,7 +142,7 @@ class DebugSessionService extends EventEmitter {
 	}
 
 	launchApp() {
-		return Promise.reject(new Error('Debug session launch actions are not supported from Logcat Universal.'));
+		return Promise.reject(new Error('Debug session launch actions are not supported from LogView Universal.'));
 	}
 
 	forceStopApp(deviceId) {
@@ -391,7 +391,7 @@ class DebugSessionService extends EventEmitter {
 		this.#warnedTerminalSessions.add(session.id);
 		this.emit('debugevent', {
 			type: sourceEventType(DEBUG_SOURCE, SOURCE_EVENT_KINDS.WARNING),
-			data: 'This debug session writes to VS Code Terminal. VS Code does not expose that terminal output to extensions, so Logcat Universal can only capture it if the launch configuration uses "console": "internalConsole".',
+			data: 'This debug session writes to VS Code Terminal. VS Code does not expose that terminal output to extensions, so LogView Universal can only capture it if the launch configuration uses "console": "internalConsole".',
 		});
 	}
 

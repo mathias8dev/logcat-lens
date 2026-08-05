@@ -1,6 +1,6 @@
 {
-	"name": "logcat-universal",
-	"displayName": "Logcat Universal",
+	"name": "logview-universal",
+	"displayName": "LogView Universal",
 	"icon": "res/icon.png",
 	"description": "A powerful mobile and debug-session log viewer for VS Code — stream, filter, and search logs without leaving your editor.",
 	"version": "3.1.0",
@@ -30,18 +30,18 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/mathias8dev/logcat-universal"
+		"url": "https://github.com/mathias8dev/logview-universal"
 	},
-	"homepage": "https://github.com/mathias8dev/logcat-universal#readme",
+	"homepage": "https://github.com/mathias8dev/logview-universal#readme",
 	"bugs": {
-		"url": "https://github.com/mathias8dev/logcat-universal/issues"
+		"url": "https://github.com/mathias8dev/logview-universal/issues"
 	},
 	"galleryBanner": {
 		"color": "#1e1e1e",
 		"theme": "dark"
 	},
 	"activationEvents": [
-		"onView:logcat-universal-main-view",
+		"onView:logview-universal-main-view",
 		"onDebug"
 	],
 	"main": "./src/backend/extension.js",
@@ -49,33 +49,33 @@
 		"viewsContainers": {
 			"panel": [
 				{
-					"id": "logcat-universal-container",
-					"title": "Logcat Universal",
+					"id": "logview-universal-container",
+					"title": "LogView Universal",
 					"icon": ""
 				}
 			]
 		},
 		"views": {
-			"logcat-universal-container": [
+			"logview-universal-container": [
 				{
-					"id": "logcat-universal-main-view",
+					"id": "logview-universal-main-view",
 					"type": "webview",
 					"name": "",
-					"contextualTitle": "Logcat Universal",
+					"contextualTitle": "LogView Universal",
 					"visibility": "visible",
 					"icon": ""
 				}
 			]
 		},
 		"configuration": {
-			"title": "Logcat Universal",
+			"title": "LogView Universal",
 			"properties": {
-				"logcatLens.adbPath": {
+				"logviewUniversal.adbPath": {
 					"type": "string",
 					"default": "",
 					"description": "Absolute path to the adb binary. Leave empty to auto-detect from ANDROID_HOME or common install locations."
 				},
-				"logcatLens.tagGroups": {
+				"logviewUniversal.tagGroups": {
 					"type": "object",
 					"default": {},
 					"description": "Saved tag groups. Keys are group names, values are arrays of tag strings."

@@ -89,8 +89,8 @@ function printHelp() {
   npm run vsix -- [experimental|release] [--tag] [--out <file>]
 
 Modes:
-  default        Package to logcat-universal-<current>-YYYYMMDDhhmmss.vsix.
-  experimental  Package to logcat-universal-<current>-experimental-YYYYMMDDhhmmss.vsix and display name "Logcat Universal Experimental".
+  default        Package to logview-universal-<current>-YYYYMMDDhhmmss.vsix.
+  experimental  Package to logview-universal-<current>-experimental-YYYYMMDDhhmmss.vsix and display name "LogView Universal Experimental".
   release       Package with the current package.json version unchanged.
 
 Options:

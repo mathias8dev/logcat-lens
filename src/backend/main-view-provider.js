@@ -16,6 +16,20 @@ const {
 	sourceEvent,
 } = require('../shared/contracts');
 
+const SETTINGS_SECTION = 'logviewUniversal';
+const LEGACY_SETTINGS_SECTION = 'logcatLens';
+
+function configuration(section = SETTINGS_SECTION) {
+	return vscode.workspace.getConfiguration(section);
+}
+
+function savedTagGroups() {
+	return {
+		...configuration(LEGACY_SETTINGS_SECTION).get('tagGroups', {}),
+		...configuration(SETTINGS_SECTION).get('tagGroups', {}),
+	};
+}
+
 module.exports = class MainViewProvider {
 	#view;
 	#extensionURI;
@@ -151,23 +165,24 @@ module.exports = class MainViewProvider {
 					break;
 				}
 				case UI_MESSAGES.SAVE_TAG_GROUP: {
-					const config = vscode.workspace.getConfiguration('logcatLens');
-					const groups = { ...config.get('tagGroups', {}) };
+					const config = configuration();
+					const groups = savedTagGroups();
 					groups[event.data.name] = event.data.tags;
 					await config.update('tagGroups', groups, vscode.ConfigurationTarget.Global);
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
 				case UI_MESSAGES.LOAD_TAG_GROUPS: {
-					const groups = vscode.workspace.getConfiguration('logcatLens').get('tagGroups', {});
+					const groups = savedTagGroups();
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups } });
 					break;
 				}
 				case UI_MESSAGES.DELETE_TAG_GROUP: {
-					const cfg = vscode.workspace.getConfiguration('logcatLens');
-					const grps = { ...cfg.get('tagGroups', {}) };
+					const cfg = configuration();
+					const grps = savedTagGroups();
 					delete grps[event.data.name];
 					await cfg.update('tagGroups', grps, vscode.ConfigurationTarget.Global);
+					await configuration(LEGACY_SETTINGS_SECTION).update('tagGroups', grps, vscode.ConfigurationTarget.Global);
 					this.#postMessage({ type: VIEW_MESSAGES.TAG_GROUPS, data: { groups: grps } });
 					break;
 				}
@@ -197,7 +212,7 @@ module.exports = class MainViewProvider {
 					});
 					break;
 				case UI_MESSAGES.OPEN_ADB_SETTINGS:
-					vscode.commands.executeCommand('workbench.action.openSettings', 'logcatLens.adbPath');
+					vscode.commands.executeCommand('workbench.action.openSettings', `${SETTINGS_SECTION}.adbPath`);
 					break;
 				case UI_MESSAGES.OPEN_ADB_DOWNLOAD:
 					vscode.env.openExternal(vscode.Uri.parse('https://developer.android.com/tools/releases/platform-tools'));
@@ -305,7 +320,7 @@ module.exports = class MainViewProvider {
 			</head>
 
 			<body data-vscode-context='{ "preventDefaultContextMenuItems": true }'>
-				<logcat-universal></logcat-universal>
+				<logview-universal></logview-universal>
 			</body>
 			</html>
 		`;

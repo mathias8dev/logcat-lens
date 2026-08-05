@@ -8,10 +8,18 @@ const vscode = require('vscode');
 const { SOURCES, SOURCE_EVENT_KINDS, sourceEventType } = require('../../shared/contracts');
 
 const ADB_SOURCE = SOURCES.ANDROID;
+const SETTINGS_SECTION = 'logviewUniversal';
+const LEGACY_SETTINGS_SECTION = 'logcatLens';
+
+function configuredAdbPath() {
+	const configured = vscode.workspace.getConfiguration(SETTINGS_SECTION).get('adbPath');
+	if (configured) return configured;
+	return vscode.workspace.getConfiguration(LEGACY_SETTINGS_SECTION).get('adbPath');
+}
 
 function findAdb() {
 	// 1. User-configured path takes priority
-	const configured = vscode.workspace.getConfiguration('logcatLens').get('adbPath');
+	const configured = configuredAdbPath();
 	if (configured && existsSync(configured)) return configured;
 
 	// 2. ANDROID_HOME / ANDROID_SDK_ROOT env vars
@@ -81,7 +89,7 @@ async function downloadAndInstallAdb() {
 
 	return vscode.window.withProgress({
 		location: vscode.ProgressLocation.Notification,
-		title: 'Logcat Universal: Installing ADB',
+		title: 'LogView Universal: Installing ADB',
 		cancellable: false,
 	}, async (progress) => {
 		progress.report({ message: 'Downloading platform-tools...' });
@@ -138,7 +146,7 @@ async function downloadAndInstallAdb() {
 		try { require('fs').unlinkSync(zipPath); } catch { /* ignore */ }
 
 		// Auto-configure the setting and refresh cached path
-		await vscode.workspace.getConfiguration('logcatLens').update('adbPath', adbBin, vscode.ConfigurationTarget.Global);
+		await vscode.workspace.getConfiguration(SETTINGS_SECTION).update('adbPath', adbBin, vscode.ConfigurationTarget.Global);
 		_adbPath = adbBin;
 		_adbWarningShown = false;
 
@@ -162,7 +170,7 @@ function getAdb() {
 			} else if (choice === 'Download Page') {
 				vscode.env.openExternal(vscode.Uri.parse('https://developer.android.com/tools/releases/platform-tools'));
 			} else if (choice === 'Set Path') {
-				vscode.commands.executeCommand('workbench.action.openSettings', 'logcatLens.adbPath');
+				vscode.commands.executeCommand('workbench.action.openSettings', `${SETTINGS_SECTION}.adbPath`);
 			}
 		});
 	}
@@ -171,7 +179,7 @@ function getAdb() {
 
 // Reset cached path when settings change
 vscode.workspace.onDidChangeConfiguration(e => {
-	if (e.affectsConfiguration('logcatLens.adbPath')) _adbPath = null;
+	if (e.affectsConfiguration(`${SETTINGS_SECTION}.adbPath`) || e.affectsConfiguration(`${LEGACY_SETTINGS_SECTION}.adbPath`)) _adbPath = null;
 });
 
 class ADBService extends EventEmitter {

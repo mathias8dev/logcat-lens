@@ -7,14 +7,14 @@ function activate(context) {
 
 	// Status Bar Item
 	// const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-	// statusBarItem.command = 'logcat-universal.open';
+	// statusBarItem.command = 'logview-universal.open';
 	// statusBarItem.text = '$(bug)';
 	// statusBarItem.tooltip = 'Open Android Logcat';
 	// statusBarItem.show();
 	// context.subscriptions.push(statusBarItem);
 
 	provider = new MainViewProvider(context);
-	vsc.registerWebViewProvider(context, 'logcat-universal-main-view',
+	vsc.registerWebViewProvider(context, 'logview-universal-main-view',
 		provider,
 		{ webviewOptions: { retainContextWhenHidden: true }
 	});
